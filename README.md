@@ -60,6 +60,10 @@ src/gpu/     WebGPU renderer, WGSL shaders (photo-material terrain, water, atlas
 src/ui/      HUD, overlay (objectives, orders, LOS tool), audio in src/audio/
 ```
 
+## Reading the firefight
+
+Fire is colour-coded by side, as the tracer ammunition was in 1943: **US red-orange**, **Japanese green**. Tracer rounds are bold; every other round leaves a faint streak in the same colour; muzzle flashes are directional (hot core, forward cone, side petals), tinted by side, keep a minimum on-screen size when zoomed out, and throw a flicker of light on the ground — most striking at night.
+
 ## Art pipeline
 
 - **Terrain materials** (`assets/tex`): nine CC0 photo textures from [Poly Haven](https://polyhaven.com) (coral sand, wet sand, coral rubble, scrub, grass, burned ground, airfield gravel, reef, leaf litter). `python3 tools/build_textures.py` downloads them, colour-grades them to Tarawa's palette and writes 512² WebP albedo + normal maps. The terrain shader blends them by beach/inland/vegetation/airfield masks with anti-tiling, fading to each material's mean colour when zoomed out.

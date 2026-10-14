@@ -847,10 +847,22 @@ fn plane(q: vec2f, hs: vec2f) {
       let a = pow(clamp(1.0 - r, 0.0, 1.0), select(2.0, 1.4, k == 44)) * col.a;
       return vec4f(col.rgb * a, 0.0);
     }
-    case 25: { // tracer
+    case 49: { // muzzle flash: white-hot core, forward cone, two side petals; flickers per shot (p1 = seed)
       let s = q / hs;
-      let a = smoothstep(1.0, 0.3, abs(s.y)) * smoothstep(1.0, 0.6, abs(s.x)) * col.a;
-      return vec4f(col.rgb * a * 1.6, 0.0);
+      let core = exp(-dot(s * vec2f(2.2, 2.8), s * vec2f(2.2, 2.8)) * 2.0);
+      let cone = exp(-((s.x - 0.42) * (s.x - 0.42) * 5.0 + s.y * s.y * 34.0)) * step(-0.15, s.x);
+      let pa = rot2(s, 1.05); let pb = rot2(s, -1.05);
+      let petals = exp(-(pa.x - 0.3) * (pa.x - 0.3) * 14.0 - pa.y * pa.y * 70.0) + exp(-(pb.x - 0.3) * (pb.x - 0.3) * 14.0 - pb.y * pb.y * 70.0);
+      let fl = 0.75 + 0.5 * fract(prm.y * 7.31);
+      let a = (core * 1.4 + cone * fl + petals * 0.55 * (1.5 - fl)) * col.a;
+      let c = mix(col.rgb, vec3f(1.0, 1.0, 0.92), clamp(core * 1.6 - 0.3, 0.0, 1.0));
+      return vec4f(c * a * 1.25, 0.0);
+    }
+    case 25: { // tracer / bullet streak: bright head, fading tail, white-hot centre line
+      let s = q / hs;
+      let a = smoothstep(1.0, 0.3, abs(s.y)) * smoothstep(1.0, 0.75, abs(s.x)) * mix(0.3, 1.0, smoothstep(-1.0, 0.85, s.x)) * col.a;
+      let c = mix(col.rgb, vec3f(1.0, 1.0, 0.85), smoothstep(0.3, 0.0, abs(s.y)) * smoothstep(0.5, 0.95, s.x) * 0.45);
+      return vec4f(c * a, a);   // drawn in the alpha pass: solid side colour on any ground
     }
     case 26: { // spark
       let a = smoothstep(1.0, 0.0, length(q / hs)) * col.a;

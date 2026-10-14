@@ -1,6 +1,12 @@
 // Visual effects: particles (muzzle flashes, tracers, explosions, splashes, smoke, fire), short-lived lights.
 import { K, DK } from '../kinds.js';
 
+// Fire is colour-coded by side so it reads at a glance: US red-orange tracers, Japanese green (as in 1943),
+// with matching tints on bullet streaks, muzzle flashes and the flash light they throw.
+const SIDE_FX = {
+  US: { tracer: [1, 0.16, 0.04], streak: [1, 0.36, 0.16], flash: [1, 0.5, 0.12], light: [1, 0.62, 0.32] },
+  JP: { tracer: [0.25, 1, 0.12], streak: [0.5, 1, 0.32], flash: [0.55, 1, 0.2], light: [0.72, 1, 0.45] },
+};
 const MAXP = typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches ? 3000 : 6000;
 
 export class FX {
@@ -26,18 +32,27 @@ export class FX {
         const dx = e.tx - e.x, dy = e.ty - e.y, d = Math.hypot(dx, dy) || 1;
         const rot = Math.atan2(dy, dx);
         const big = e.cls === 'mg' || e.cls === 'hmg';
-        this.P(K.FLASH, e.x + dx / d * 0.6, e.y + dy / d * 0.6, 0, 0, 0.06, big ? 1.3 : 0.9, 0, [1, 0.85, 0.5, 1], true);
-        if (Math.random() < 0.3) this.light(e.x, e.y, big ? 14 : 9, 0.6, [1, 0.8, 0.5], 0.06);
+        const sf = SIDE_FX[e.side] || SIDE_FX.US;
+        const ux = dx / d, uy = dy / d;
+        // directional muzzle flash (core, forward cone, side petals), a soft glow, and light on the ground
+        const fs = e.cls === 'hmg' ? 2.4 : big ? 2.0 : e.cls === 'auto' ? 1.7 : 1.45;
+        this.add({ kind: K.MUZZLE, x: e.x + ux * fs * 0.45, y: e.y + uy * fs * 0.45, vx: 0, vy: 0, life: big ? 0.09 : 0.075, t: 0, size: fs, grow: 0, c: [...sf.flash, 1], add: true, rot, seed: Math.random(), minPx: big ? 13 : 10 });
+        this.P(K.GLOW, e.x, e.y, 0, 0, 0.12, fs * 2.0, 0, [...sf.flash, 0.6], true);
+        if (big || Math.random() < 0.55) this.light(e.x, e.y, big ? 18 : 11, big ? 0.9 : 0.6, sf.light, 0.07);
+        const sp = 750;
         if (e.tracer) {
-          const sp = 750;
-          const col = e.side === 'US' ? [1, 0.45, 0.2, 1] : [0.65, 1, 0.55, 1];
-          this.add({ kind: K.TRACER, x: e.x, y: e.y, vx: dx / d * sp, vy: dy / d * sp, life: d / sp, t: 0, size: e.cls === 'hmg' ? 4 : 3, grow: 0, c: col, add: true, rot, extra: 0, seed: 0, tracer: true });
+          this.add({ kind: K.TRACER, x: e.x, y: e.y, vx: ux * sp, vy: uy * sp, life: d / sp, t: 0, size: e.cls === 'hmg' ? 4.5 : 3.5, grow: 0, c: [...sf.tracer, 1], add: true, rot, extra: 0, seed: 0, tracer: true, w: e.cls === 'hmg' ? 0.26 : 0.2 });
+        } else {
+          // every other round leaves a faint streak in the side's colour, so rifle fire is attributable too
+          this.add({ kind: K.TRACER, x: e.x, y: e.y, vx: ux * sp, vy: uy * sp, life: d / sp, t: 0, size: 2.2, grow: 0, c: [...sf.streak, 0.38], add: true, rot, extra: 0, seed: 0, tracer: true, w: 0.09 });
         }
         break;
       }
       case 'muzzle': {
+        const sf = SIDE_FX[e.side] || SIDE_FX.US;
+        this.add({ kind: K.MUZZLE, x: e.x + Math.cos(e.dir) * (e.big ? 1.6 : 0.8), y: e.y + Math.sin(e.dir) * (e.big ? 1.6 : 0.8), vx: 0, vy: 0, life: e.big ? 0.14 : 0.1, t: 0, size: e.big ? 3.8 : 2.0, grow: 0, c: [...sf.flash, 1], add: true, rot: e.dir, seed: Math.random(), minPx: 10 });
         this.P(K.FLASH, e.x, e.y, 0, 0, 0.12, e.big ? 3.5 : 1.6, 4, [1, 0.8, 0.45, 1], true);
-        this.light(e.x, e.y, e.big ? 40 : 15, 1.2, [1, 0.75, 0.45], 0.12);
+        this.light(e.x, e.y, e.big ? 40 : 15, 1.2, sf.light, 0.12);
         for (let i = 0; i < (e.big ? 5 : 2); i++) this.P(K.SMOKE, e.x, e.y, (Math.random() - 0.5) * 2 + Math.cos(e.dir) * 3, (Math.random() - 0.5) * 2 + Math.sin(e.dir) * 3, 2 + Math.random() * 2, 1.5, 1.5, [0.75, 0.74, 0.7, 0.5], false);
         break;
       }
@@ -120,8 +135,10 @@ export class FX {
     for (let i = this.flashLights.length - 1; i >= 0; i--) { const l = this.flashLights[i]; l.t += dt; if (l.t > l.life) this.flashLights.splice(i, 1); }
   }
 
-  build(alphaFx, addFx, view) {
+  // zoomCss: screen px per metre. Flashes and tracers keep a minimum on-screen size so fire stays legible zoomed out.
+  build(alphaFx, addFx, view, zoomCss = 1) {
     const [x0, y0, x1, y1] = view;
+    const pxm = 1 / Math.max(zoomCss, 0.05);
     for (const o of this.p) {
       if (o.x < x0 - 30 || o.x > x1 + 30 || o.y < y0 - 30 || o.y > y1 + 30) continue;
       const f = o.t / o.life;
@@ -132,8 +149,14 @@ export class FX {
       else if (o.kind === K.FLASH || o.kind === K.SPARK) a *= 1 - f;
       else if (o.kind === K.FIRE) a *= 1 - f * f;
       const L = o.add ? addFx : alphaFx;
-      if (o.kind === K.TRACER) L.push(o.x, o.y, o.size, 0.18, o.rot, K.TRACER, 0, 0, c[0], c[1], c[2], 1);
+      if (o.kind === K.TRACER) {
+        const len = Math.max(o.size, 9 * pxm), w = Math.max(o.w || 0.18, (o.w > 0.15 ? 2.0 : 1.2) * pxm);
+        alphaFx.push(o.x, o.y, len, w, o.rot, K.TRACER, 0, 0, c[0], c[1], c[2], c[3]);
+        if (c[3] > 0.9) addFx.push(o.x + Math.cos(o.rot) * len * 0.75, o.y + Math.sin(o.rot) * len * 0.75, w * 3, w * 3, 0, K.GLOW, 0, 0, c[0], c[1], c[2], 0.5);
+      }
+      else if (o.kind === K.MUZZLE) { const s = Math.max(o.size, (o.minPx || 6) * pxm); L.push(o.x, o.y, s, s, o.rot, K.MUZZLE, 0, o.seed, c[0], c[1], c[2], 1 - f * f); }
       else if (o.kind === K.FLAME) L.push(o.x, o.y, o.size, o.size2, o.rot, K.FLAME, 0, o.seed, 1, 1, 1, 1 - f * f);
+      else if (o.kind === K.GLOW) { const s = Math.max(o.size, 14 * pxm); L.push(o.x, o.y, s, s, o.rot, o.kind, 0, o.seed, c[0], c[1], c[2], a * (1 - f)); }
       else L.push(o.x, o.y, o.size, o.size, o.rot, o.kind, 0, o.seed, c[0], c[1], c[2], a);
     }
   }

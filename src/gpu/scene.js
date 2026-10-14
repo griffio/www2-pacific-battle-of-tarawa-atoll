@@ -235,7 +235,7 @@ export class Scene {
       }
     }
     this.fx.update(dt);
-    this.fx.build(A, D, viewRect);
+    this.fx.build(A, D, viewRect, zoomCss);
     // projectiles
     for (const p of g.projectiles) {
       if (p.invisible || !inView(p.x, p.y, 10)) continue;

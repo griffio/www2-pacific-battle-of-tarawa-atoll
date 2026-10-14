@@ -338,7 +338,7 @@ export function launchProjectile(g, s, w, tx, ty, d, k) {
   g.projectiles.push({ kind: w.indirect ? 'mortar' : (w.proj || 'shell'), x0: mx, y0: my, x: mx, y: my, tx: ix, ty: iy, t: 0, T, w, owner: s, side: s.side,
     target: hit ? s.target : null, targetKind: hit ? k : null, fromX: s.x, fromY: s.y, arc: w.indirect ? 1 : 0 });
   if (w.indirect) g.sound('mortar_launch', s.x, s.y, 0.7);
-  g.emit({ t: 'muzzle', x: mx, y: my, dir: s.dir, big: w.cls === 'cannon' || w.cls === 'coastal' || w.cls === 'at' });
+  g.emit({ t: 'muzzle', x: mx, y: my, dir: s.dir, side: s.side, big: w.cls === 'cannon' || w.cls === 'coastal' || w.cls === 'at' });
   if (w.cls === 'at') g.emit({ t: 'backblast', x: s.x - Math.cos(s.dir) * 2, y: s.y - Math.sin(s.dir) * 2 });
   if (w.cls === 'at' && s.side === 'US') g.voice('us_bazooka_1', s.x, s.y, 'US', { cd: 25 });
 }
