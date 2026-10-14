@@ -2,6 +2,21 @@
 
 A real-time, Close Combat–style tactical game of the Battle of Tarawa (Operation GALVANIC, 20–28 November 1943), rendered with **WebGPU**. It plays with mouse and keyboard on desktop and with touch on iPad. You command the 2nd Marine Division; the computer commands the Japanese defenders.
 
+![Red Beach, D-Day: a rifle squad pinned at the seawall under fire from a pillbox](docs/screenshots/firefight.jpg)
+
+## Screenshots
+
+| | |
+|---|---|
+| ![Title screen over the atoll](docs/screenshots/title.jpg) | ![The atoll campaign map with the five battles](docs/screenshots/atoll.jpg) |
+| **Title** — Operation GALVANIC, November 1943 | **Campaign map** — Tarawa Atoll, from Betio to Buariki |
+| ![The first wave of amtracs crossing the reef](docs/screenshots/landing.jpg) | ![A machine-gun team by a bunker on Green Beach, close zoom](docs/screenshots/closeup.jpg) |
+| **H-Hour** — the first wave of amtracs crosses the reef toward Red Beach | **Close zoom** — a selected MG section outlined beside a knocked-out bunker |
+| ![The sand-covered bombproof shelter under fire](docs/screenshots/bunker.jpg) | ![Night counterattack lit by a star shell](docs/screenshots/night.jpg) |
+| **Bonnyman's Bombproof** — the shelter's field of fire, red; Marines working round it | **The Night Counterattack** — a star shell over the Marine line |
+| ![Buariki's palm forest from above](docs/screenshots/buariki.jpg) | ![Elevation view with contours and spot heights](docs/screenshots/elevation.jpg) |
+| **Buariki** — the last stand in dense coconut palms | **Elevation view** (T) — height colours, 0.5 m contours, spot heights |
+
 ## Run it
 
 ```bash
