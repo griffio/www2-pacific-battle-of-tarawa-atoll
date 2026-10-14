@@ -1,0 +1,59 @@
+{
+ "size": 512,
+ "materials": [
+  {
+   "name": "sand",
+   "tile": 8.0,
+   "source": "https://polyhaven.com/a/coast_sand_01",
+   "author": "Rob Tuytel"
+  },
+  {
+   "name": "wetsand",
+   "tile": 5.0,
+   "source": "https://polyhaven.com/a/damp_beach_sand",
+   "author": "Dimitrios Savva"
+  },
+  {
+   "name": "coral",
+   "tile": 5.0,
+   "source": "https://polyhaven.com/a/coral_gravel",
+   "author": "Rob Tuytel"
+  },
+  {
+   "name": "scrub",
+   "tile": 4.5,
+   "source": "https://polyhaven.com/a/grass_path_2",
+   "author": "Rob Tuytel"
+  },
+  {
+   "name": "grass",
+   "tile": 4.5,
+   "source": "https://polyhaven.com/a/leafy_grass",
+   "author": "Charlotte Baglioni"
+  },
+  {
+   "name": "burned",
+   "tile": 4.0,
+   "source": "https://polyhaven.com/a/burned_ground_01",
+   "author": "Rob Tuytel"
+  },
+  {
+   "name": "airfield",
+   "tile": 5.0,
+   "source": "https://polyhaven.com/a/gravel_concrete",
+   "author": "Dario Barresi, Charlotte Baglioni"
+  },
+  {
+   "name": "reef",
+   "tile": 5.0,
+   "source": "https://polyhaven.com/a/coral_ground_02",
+   "author": "Rob Tuytel"
+  },
+  {
+   "name": "litter",
+   "tile": 3.5,
+   "source": "https://polyhaven.com/a/dry_decay_leaves",
+   "author": "Amal Kumar"
+  }
+ ]
+}

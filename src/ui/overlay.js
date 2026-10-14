@@ -42,6 +42,7 @@ export class Overlay {
     const z = cam.zoom;
     const W2S = (wx, wy) => this.w2s(cam, wx, wy);
     this.drawLabels(g.map, cam, 0, 1.1);
+    if (app.terrainView) this.drawElevation(app, g, W2S, z);
     const now = g.time;
     const sel = app.selection;
     // ---- fortifications known to the Marines
@@ -158,22 +159,52 @@ export class Overlay {
     }
   }
 
+  // elevation view: spot heights, and the height under the mouse
+  drawElevation(app, g, W2S, z) {
+    const x = this.ctx, T = g.T;
+    x.save();
+    x.font = '600 11px Inter, sans-serif'; x.textBaseline = 'middle';
+    const minGap = 90 / Math.max(z, 0.05);
+    let last = [];
+    for (const s of app.spotHeights || []) {
+      const [sx, sy] = W2S(s.x, s.y);
+      if (sx < -20 || sy < -20 || sx > this.W + 20 || sy > this.H + 20) continue;
+      if (last.some(o => Math.hypot(o.x - s.x, o.y - s.y) < minGap)) continue;
+      last.push(s);
+      x.fillStyle = '#2a1a0c';
+      x.beginPath(); x.moveTo(sx, sy - 5); x.lineTo(sx + 4.5, sy + 3); x.lineTo(sx - 4.5, sy + 3); x.closePath(); x.fill();
+      const txt = s.e.toFixed(1) + ' m';
+      x.lineWidth = 3; x.strokeStyle = 'rgba(255,248,225,0.85)'; x.strokeText(txt, sx + 7, sy);
+      x.fillStyle = '#2a1a0c'; x.fillText(txt, sx + 7, sy);
+    }
+    if (app.cursorW) {
+      const [wx, wy] = app.cursorW, [sx, sy] = W2S(wx, wy);
+      const el = T.groundAt(wx, wy) - T.water, cover = T.obj[T.idx(wx, wy)];
+      const txt = el < 0 ? `water ${(-el).toFixed(1)} m deep` : `${el.toFixed(1)} m above water` + (cover > 0.4 ? ` · cover ${cover.toFixed(1)} m` : '');
+      this.tag(sx, sy + 22, txt, '#fff3c8');
+    }
+    x.restore();
+  }
   drawSelected(g, t, W2S, z) {
     const x = this.ctx;
     x.strokeStyle = '#ffe08a'; x.lineWidth = 1.5;
     if (t.vehicle || t.embarked) {
       const v = t.vehicle || t.embarked;
       const [sx, sy] = W2S(v.x, v.y);
-      x.beginPath(); x.arc(sx, sy, Math.max(10, v.spec.len * 0.65 * z), 0, 7); x.stroke();
+      // the vehicle itself gets a glowing frame from the sprite renderer (K.SELBOX)
       this.tag(sx, sy - Math.max(14, v.spec.len * 0.7 * z) - 8, `${t.embarked ? t.name + ' (in ' + v.name + ')' : v.name} · ${t.status}`, '#ffe9a0');
       return;
     }
     const r = Math.max(5, 1.3 * z);
+    // close in, the sprites carry a silhouette outline instead of rings
+    const rings = z < 2.2;
     for (const s of t.soldiers) {
       if (s.state === 'dead') continue;
       const [sx, sy] = W2S(s.x, s.y);
-      x.strokeStyle = s.state === 'incap' ? '#ff6a55' : s.status === 'pinned' || s.status === 'cowering' ? '#ffb13a' : '#ffe08a';
-      x.beginPath(); x.arc(sx, sy, r, 0, 7); x.stroke();
+      if (rings) {
+        x.strokeStyle = s.state === 'incap' ? '#ff6a55' : s.status === 'pinned' || s.status === 'cowering' ? '#ffb13a' : '#ffe08a';
+        x.beginPath(); x.arc(sx, sy, r, 0, 7); x.stroke();
+      }
       // fire line for the current target
       if (s.burstLeft > 0 && s.targetKind && s.target) {
         const [tx, ty] = W2S(s.target.x, s.target.y);

@@ -83,6 +83,9 @@ export class HUD {
       this.app.selectTeam(team, e.shiftKey || e.ctrlKey || e.metaKey);
       this.app.audio.ui('ui_select');
     });
+    // hovering a card highlights that team on the map
+    el.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') this.app.scene.hoverTeam = team; });
+    el.addEventListener('pointerleave', () => { if (this.app.scene.hoverTeam === team) this.app.scene.hoverTeam = null; });
     this.units.appendChild(el);
     c = { el, ico: el.children[0], n: el.children[1], ty: el.children[2], st: el.children[3], men: el.children[4], bar: el.children[5], key: '' };
     c.ico.textContent = team.vehicle ? (team.vehicle.spec.kind === 'track' ? 'TK' : team.vehicle.spec.kind === 'amph' ? 'LVT' : 'BT') : team.short;

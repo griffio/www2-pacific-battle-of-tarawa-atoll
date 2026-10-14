@@ -3,6 +3,10 @@ import { TERRAIN_WGSL, SPRITE_WGSL, DECAL_WGSL, MIP_WGSL } from './shaders.js';
 import { f16 } from '../util.js';
 
 export const IFLOATS = 16;
+// Terrain materials (assets/tex, built by tools/build_textures.py). Mean colours double as a 1×1 fallback
+// so the terrain still renders if the textures are slow or fail to load. Order = WGSL layer index.
+const MAT_FALLBACK = [[0.87, 0.845, 0.74], [0.63, 0.58, 0.47], [0.80, 0.75, 0.62], [0.64, 0.62, 0.48], [0.40, 0.42, 0.27],
+  [0.36, 0.33, 0.28], [0.80, 0.79, 0.74], [0.74, 0.68, 0.55], [0.47, 0.41, 0.30]];
 
 export class InstanceList {
   constructor(cap = 4096) { this.data = new Float32Array(cap * IFLOATS); this.n = 0; }
@@ -52,7 +56,23 @@ export class Renderer {
       { binding: 3, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } },
       { binding: 4, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float' } },
       { binding: 5, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } },
+      { binding: 6, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float' } }, // cast-shadow mask (screen space)
+      { binding: 7, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } },
+      { binding: 8, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d-array' } }, // material albedo
+      { binding: 9, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d-array' } }, // material normals
+      { binding: 10, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } },
+      { binding: 11, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float' } },   // sprite atlas: albedo + alpha
+      { binding: 12, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float' } },   // sprite atlas: normal xy, height, AO
+      { binding: 13, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } },
     ] });
+    // stand-in for the shadow mask while the mask itself is the render target
+    this.blankTex = device.createTexture({ size: [1, 1], format: 'r8unorm', usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST });
+    this.shadowTex = null;
+    this.matSampler = device.createSampler({ magFilter: 'linear', minFilter: 'linear', mipmapFilter: 'linear', addressModeU: 'repeat', addressModeV: 'repeat', maxAnisotropy: 4 });
+    this.makeMaterialFallback();
+    this.atlasSampler = device.createSampler({ magFilter: 'linear', minFilter: 'linear', mipmapFilter: 'linear', addressModeU: 'clamp-to-edge', addressModeV: 'clamp-to-edge' });
+    this.atlasA = this.atlasN = device.createTexture({ size: [1, 1], format: 'rgba8unorm', usage: GPUTextureUsage.TEXTURE_BINDING });
+    this.spriteMan = null;   // set once the pre-rendered sprite atlas is loaded (tools/render_sprites.py)
     this.makeNoise();
     const layout = device.createPipelineLayout({ bindGroupLayouts: [this.bgl] });
     const tmod = device.createShaderModule({ code: TERRAIN_WGSL, label: 'terrain' });
@@ -78,6 +98,16 @@ export class Renderer {
     });
     this.alphaPipe = mk({ color: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha' }, alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha' } }, 'alpha');
     this.addPipe = mk({ color: { srcFactor: 'one', dstFactor: 'one' }, alpha: { srcFactor: 'zero', dstFactor: 'one' } }, 'add');
+    // Cast shadows: every caster writes its swept silhouette into an r8 screen mask with MAX blending, so overlapping
+    // shadows never double-darken; terrain and ground-level sprites then read the mask.
+    this.shadowPipe = device.createRenderPipeline({
+      layout, label: 'shadows',
+      vertex: { module: smod, entryPoint: 'vsShadow', buffers: [instLayout] },
+      fragment: { module: smod, entryPoint: 'fsShadow', targets: [{ format: 'r8unorm', blend: {
+        color: { operation: 'max', srcFactor: 'one', dstFactor: 'one' }, alpha: { operation: 'max', srcFactor: 'one', dstFactor: 'one' } } }] },
+      primitive: { topology: 'triangle-list' },
+    });
+    this.shadowBuf = null; this.shadowCap = 0;
     // decals
     const dmod = device.createShaderModule({ code: DECAL_WGSL, label: 'decals' });
     this.decalBgl = device.createBindGroupLayout({ entries: [{ binding: 0, visibility: GPUShaderStage.VERTEX, buffer: { type: 'uniform' } }] });
@@ -128,7 +158,7 @@ export class Renderer {
   }
 
   // Mip chain generation by successive 2x2 bilinear downsampling on the GPU.
-  mipChain(tex, format) {
+  mipChain(tex, format, layer = 0) {
     let pipe = this.mipPipes[format];
     if (!pipe) pipe = this.mipPipes[format] = this.device.createRenderPipeline({
       layout: 'auto', label: 'mip-' + format,
@@ -138,8 +168,8 @@ export class Renderer {
     });
     const steps = [];
     for (let l = 1; l < tex.mipLevelCount; l++) {
-      const src = tex.createView({ baseMipLevel: l - 1, mipLevelCount: 1 });
-      const dst = tex.createView({ baseMipLevel: l, mipLevelCount: 1 });
+      const src = tex.createView({ dimension: '2d', baseArrayLayer: layer, arrayLayerCount: 1, baseMipLevel: l - 1, mipLevelCount: 1 });
+      const dst = tex.createView({ dimension: '2d', baseArrayLayer: layer, arrayLayerCount: 1, baseMipLevel: l, mipLevelCount: 1 });
       steps.push({ dst, bg: this.device.createBindGroup({ layout: pipe.getBindGroupLayout(0), entries: [{ binding: 0, resource: src }, { binding: 1, resource: this.mipSampler }] }) });
     }
     return { pipe, steps };
@@ -179,16 +209,89 @@ export class Renderer {
     const p = enc.beginRenderPass({ colorAttachments: [{ view: this.decalView, loadOp: 'clear', storeOp: 'store', clearValue: { r: 0, g: 0, b: 0, a: 0 } }] });
     p.end();
     d.queue.submit([enc.finish()]);
-    this.bindGroup = d.createBindGroup({ layout: this.bgl, entries: [
+    this.makeBindGroups();
+    this.pendingDecals = map.decals.slice();
+    this.mapJustSet = true;
+  }
+
+  makeBindGroups() {
+    const mk = (shadowView) => this.device.createBindGroup({ layout: this.bgl, entries: [
       { binding: 0, resource: { buffer: this.ubuf } },
       { binding: 1, resource: this.terrTex.createView() },
       { binding: 2, resource: this.decalTex.createView() },
       { binding: 3, resource: this.sampler },
       { binding: 4, resource: this.noiseTex.createView() },
       { binding: 5, resource: this.noiseSampler },
+      { binding: 6, resource: shadowView },
+      { binding: 7, resource: this.mipSampler },
+      { binding: 8, resource: this.matAlb.createView({ dimension: '2d-array' }) },
+      { binding: 9, resource: this.matNrm.createView({ dimension: '2d-array' }) },
+      { binding: 10, resource: this.matSampler },
+      { binding: 11, resource: this.atlasA.createView() },
+      { binding: 12, resource: this.atlasN.createView() },
+      { binding: 13, resource: this.atlasSampler },
     ] });
-    this.pendingDecals = map.decals.slice();
-    this.mapJustSet = true;
+    const blank = this.blankTex.createView();
+    this.shadowPassBG = mk(blank);
+    this.bindGroup = mk(this.shadowTex ? this.shadowTex.createView() : blank);
+  }
+  makeMaterialFallback() {
+    const L = MAT_FALLBACK.length, d = this.device;
+    const mk = () => d.createTexture({ size: [1, 1, L], format: 'rgba8unorm', usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST });
+    this.matAlb = mk(); this.matNrm = mk();
+    const a = new Uint8Array(L * 4), n = new Uint8Array(L * 4);
+    MAT_FALLBACK.forEach((c, i) => { a.set([c[0] * 255, c[1] * 255, c[2] * 255, 255], i * 4); n.set([128, 128, 255, 255], i * 4); });
+    d.queue.writeTexture({ texture: this.matAlb }, a, { bytesPerRow: 4, rowsPerImage: 1 }, [1, 1, L]);
+    d.queue.writeTexture({ texture: this.matNrm }, n, { bytesPerRow: 4, rowsPerImage: 1 }, [1, 1, L]);
+  }
+  // Loads the material set into two texture arrays; mip chains are box-filtered on the GPU (a 2D canvas
+  // downscale aliases into a visible dot lattice).
+  async loadMaterials(base = 'assets/tex/') {
+    const man = await (await fetch(base + 'manifest.json')).json();
+    const N = man.size, L = man.materials.length, levels = Math.log2(N) + 1, d = this.device;
+    const img = (url) => new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = () => rej(new Error('failed to load ' + url)); im.src = url; });
+    const imgs = await Promise.all(man.materials.flatMap(m => [img(base + m.name + '_d.webp'), img(base + m.name + '_n.webp')]));
+    const usage = GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT;
+    const alb = d.createTexture({ size: [N, N, L], format: 'rgba8unorm', mipLevelCount: levels, usage, label: 'mat albedo' });
+    const nrm = d.createTexture({ size: [N, N, L], format: 'rgba8unorm', mipLevelCount: levels, usage, label: 'mat normal' });
+    const enc = d.createCommandEncoder();
+    for (let i = 0; i < L; i++) {
+      for (const [tex, im] of [[alb, imgs[i * 2]], [nrm, imgs[i * 2 + 1]]]) {
+        d.queue.copyExternalImageToTexture({ source: im }, { texture: tex, mipLevel: 0, origin: [0, 0, i] }, [N, N]);
+        this.runMips(enc, this.mipChain(tex, 'rgba8unorm', i));
+      }
+    }
+    d.queue.submit([enc.finish()]);
+    this.matAlb.destroy(); this.matNrm.destroy();
+    this.matAlb = alb; this.matNrm = nrm;
+    if (this.terrTex) this.makeBindGroups();
+  }
+  // Pre-rendered sprite atlas (palms, vehicles); mips box-filtered on the GPU. Colour is bled into transparent
+  // texels offline so mips don't fringe.
+  async loadSprites(base = 'assets/sprites/') {
+    const man = await (await fetch(base + 'manifest.json')).json();
+    const img = (url) => new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = () => rej(new Error('failed to load ' + url)); im.src = url; });
+    const [ia, inn] = await Promise.all([img(base + 'atlas_a.webp'), img(base + 'atlas_n.webp')]);
+    const d = this.device, [W, H] = man.size;
+    const levels = Math.floor(Math.log2(Math.max(W, H))) + 1;
+    const usage = GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT;
+    const mk = (label) => d.createTexture({ size: [W, H], format: 'rgba8unorm', mipLevelCount: levels, usage, label });
+    const A = mk('atlas albedo'), N = mk('atlas normal');
+    // straight (not premultiplied) alpha: the shader premultiplies after filtering
+    d.queue.copyExternalImageToTexture({ source: ia }, { texture: A, premultipliedAlpha: false }, [W, H]);
+    d.queue.copyExternalImageToTexture({ source: inn }, { texture: N, premultipliedAlpha: false }, [W, H]);
+    const enc = d.createCommandEncoder();
+    this.runMips(enc, this.mipChain(A, 'rgba8unorm')); this.runMips(enc, this.mipChain(N, 'rgba8unorm'));
+    d.queue.submit([enc.finish()]);
+    this.atlasA = A; this.atlasN = N; this.spriteMan = man;
+    if (this.terrTex) this.makeBindGroups();
+  }
+  ensureShadowTex(W, H) {
+    if (this.shadowTex && this.shadowTex.width === W && this.shadowTex.height === H) return;
+    if (this.shadowTex) this.shadowTex.destroy();
+    this.shadowTex = this.device.createTexture({ size: [W, H], format: 'r8unorm', usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING });
+    this.shadowView = this.shadowTex.createView();
+    if (this.terrTex) this.makeBindGroups();
   }
 
   uploadTerrain(T, x0, y0, x1, y1) {
@@ -245,19 +348,21 @@ export class Renderer {
     return this[bufKey];
   }
 
-  // cam: {x, y, zoomDev}, env: {time, water, tint[3], ambient, night, sun[3], lights:[{x,y,r,i,c:[r,g,b]}]}
-  render(cam, env, alpha, additive) {
+  // cam: {x, y, zoomDev}, env: {time, water, tint[3], ambient, night, sun[3], shadow, lights:[{x,y,r,i,c:[r,g,b]}]}
+  // shadows: InstanceList of shadow casters (see vsShadow)
+  render(cam, env, alpha, additive, shadows) {
     if (this.lost || !this.bindGroup) return;
     const d = this.device;
     const U = this.uniformData;
     const W = this.canvas.width, H = this.canvas.height;
+    this.ensureShadowTex(Math.ceil(W / 2), Math.ceil(H / 2));   // half-res mask, read back with bilinear filtering
     U[0] = cam.x; U[1] = cam.y; U[2] = cam.zoomDev; U[3] = env.time;
     U[4] = W; U[5] = H; U[6] = 1 / W; U[7] = 1 / H;
     U[8] = this.map.w; U[9] = this.map.h; U[10] = this.map.terrain.cell; U[11] = env.water;
     U[12] = env.tint[0]; U[13] = env.tint[1]; U[14] = env.tint[2]; U[15] = env.ambient;
     const nl = Math.min(24, env.lights.length);
-    U[16] = env.night; U[17] = nl; U[18] = this.decalM; U[19] = 1;
-    U[20] = env.sun[0]; U[21] = env.sun[1]; U[22] = env.sun[2]; U[23] = 1;
+    U[16] = env.night; U[17] = nl; U[18] = this.decalM; U[19] = env.terrainView ? 1 : 0;
+    U[20] = env.sun[0]; U[21] = env.sun[1]; U[22] = env.sun[2]; U[23] = env.shadow ?? 1;
     for (let i = 0; i < nl; i++) {
       const l = env.lights[i], o = 24 + i * 8;
       U[o] = l.x; U[o + 1] = l.y; U[o + 2] = l.r; U[o + 3] = l.i;
@@ -266,6 +371,8 @@ export class Renderer {
     d.queue.writeBuffer(this.ubuf, 0, U);
     if (alpha.n) d.queue.writeBuffer(this.ensureBuf('alpha', alpha.n * IFLOATS * 4), 0, alpha.data, 0, alpha.n * IFLOATS);
     if (additive.n) d.queue.writeBuffer(this.ensureBuf('add', additive.n * IFLOATS * 4), 0, additive.data, 0, additive.n * IFLOATS);
+    const nShadow = shadows && (env.shadow ?? 1) > 0.02 && !this.dbgNoShadows ? shadows.n : 0;
+    if (nShadow) d.queue.writeBuffer(this.ensureBuf('shadow', nShadow * IFLOATS * 4), 0, shadows.data, 0, nShadow * IFLOATS);
     const enc = d.createCommandEncoder();
     this.flushDecals(enc);
     // Mip chains only matter when zoomed out; rebuild them at most every 0.4 s.
@@ -275,6 +382,10 @@ export class Renderer {
       if (this.terrMipsDirty) { this.terrMipsDirty = false; this.runMips(enc, this.terrMips); }
       if (this.decalMipsDirty) { this.decalMipsDirty = false; this.runMips(enc, this.decalMips); }
     }
+    // shadow mask pass (always cleared, so a frame without casters leaves no stale shadows)
+    const sp = enc.beginRenderPass({ colorAttachments: [{ view: this.shadowView, loadOp: 'clear', storeOp: 'store', clearValue: { r: 0, g: 0, b: 0, a: 0 } }] });
+    if (nShadow) { sp.setBindGroup(0, this.shadowPassBG); sp.setPipeline(this.shadowPipe); sp.setVertexBuffer(0, this.shadowBuf); sp.draw(6, nShadow); }
+    sp.end();
     const view = this.ctx.getCurrentTexture().createView();
     const timing = this.qset && !this.qbusy;
     const pass = enc.beginRenderPass({ colorAttachments: [{ view, loadOp: 'clear', storeOp: 'store', clearValue: { r: 0.02, g: 0.1, b: 0.2, a: 1 } }],

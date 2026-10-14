@@ -40,10 +40,11 @@ The **atoll map** is a zoomable strategic view of all of Tarawa: Betio, Bairiki,
 
 | | Desktop | iPad |
 |---|---|---|
-| Select | click, box-drag, Shift adds, Tab cycles | tap a soldier or a unit card; long-press adds |
+| Select | click, box-drag, Shift adds, Tab cycles; hovering a unit or its card outlines it | tap a soldier or a unit card; long-press adds |
 | Orders | right-click opens the order menu (line-of-sight readout shown); hotkeys M R C F G Q E Z U X | tap ground or an enemy to open the order menu, or tap an order bar button and then the target |
 | Camera | wheel or +/− zoom (close enough to see each Marine), right-drag / WASD / arrows to pan | pinch, drag |
 | Time | Space pause; 1/2/3 select 1×/2×/4× | buttons in the top bar |
+| Elevation view | T: contour lines every 0.5 m, height colours, spot heights, height under the cursor | ⛰ button in the top bar |
 
 ## Audio
 
@@ -55,6 +56,11 @@ The **atoll map** is a zoomable strategic view of all of Tarawa: Betio, Bairiki,
 ```
 src/world/   terrain grid + LOS/cover, Betio / Buariki / atoll generators
 src/sim/     game state, combat, vehicles, Japanese AI, pathfinding (A*), scenarios, unit data
-src/gpu/     WebGPU renderer, WGSL shaders (procedural terrain/water, SDF sprites, decals), particles
+src/gpu/     WebGPU renderer, WGSL shaders (photo-material terrain, water, atlas + SDF sprites, decals, cast shadows), particles
 src/ui/      HUD, overlay (objectives, orders, LOS tool), audio in src/audio/
 ```
+
+## Art pipeline
+
+- **Terrain materials** (`assets/tex`): nine CC0 photo textures from [Poly Haven](https://polyhaven.com) (coral sand, wet sand, coral rubble, scrub, grass, burned ground, airfield gravel, reef, leaf litter). `python3 tools/build_textures.py` downloads them, colour-grades them to Tarawa's palette and writes 512² WebP albedo + normal maps. The terrain shader blends them by beach/inland/vegetation/airfield masks with anti-tiling, fading to each material's mean colour when zoomed out.
+- **Sprites** (`assets/sprites`): palms (healthy, shell-torn, stripped), LVT-1/LVT-2 (empty and loaded), LCVP and LCM (ramp up/down), Sherman, Stuart, Ha-Go (separate turrets), a truck, every fortification type, sheds and huts are modelled procedurally and pre-rendered top-down by `python3 tools/render_sprites.py` (numpy, no external art). The atlas carries albedo, normals, height and ambient occlusion, so the game lights each sprite with the sun as it rotates; palm shadows are cut from the crown silhouette.

@@ -13,6 +13,15 @@ struct U {
 @group(0) @binding(0) var<uniform> u: U;
 @group(0) @binding(4) var noiseTex: texture_2d<f32>;   // 256x256 tileable value noise, 4 independent channels
 @group(0) @binding(5) var nsamp: sampler;              // repeat addressing
+@group(0) @binding(6) var shadowTex: texture_2d<f32>;  // screen-space cast-shadow mask (r), half resolution
+@group(0) @binding(7) var shadowSamp: sampler;         // clamp, bilinear
+
+// cast shadow at a framebuffer pixel, scaled by sun strength (0 at night)
+const SHADOW_DIM: f32 = 0.56;
+fn shadowAt(fp: vec2f) -> f32 {
+  if (textureDimensions(shadowTex).x < 2u) { return 0.0; }
+  return textureSampleLevel(shadowTex, shadowSamp, fp * u.view.zw, 0.0).r * u.sun.w;
+}
 
 fn hashu(x: u32) -> u32 {
   var v = x * 747796405u + 2891336453u;
@@ -57,6 +66,9 @@ export const TERRAIN_WGSL = COMMON + /* wgsl */`
 @group(0) @binding(1) var terr: texture_2d<f32>;
 @group(0) @binding(2) var decal: texture_2d<f32>;
 @group(0) @binding(3) var samp: sampler;
+@group(0) @binding(8) var matAlb: texture_2d_array<f32>;   // photo materials (Poly Haven CC0), see tools/build_textures.py
+@group(0) @binding(9) var matNrm: texture_2d_array<f32>;
+@group(0) @binding(10) var matSamp: sampler;
 
 struct VO { @builtin(position) pos: vec4f };
 @vertex fn vs(@builtin(vertex_index) i: u32) -> VO {
@@ -65,7 +77,53 @@ struct VO { @builtin(position) pos: vec4f };
 }
 
 var<private> LOD: f32;
+// Two value-noise lookups on rotated, rescaled lattices: one lattice alone shows its square grid as a
+// checkerboard once a cell spans more than a few pixels.
+fn vnoiseR(p: vec2f) -> f32 {
+  let a = vnoise(vec2f(p.x * 0.8 - p.y * 0.6, p.x * 0.6 + p.y * 0.8));
+  let b = vnoise(vec2f(p.x * 0.375 + p.y * 1.24, -p.x * 1.24 + p.y * 0.375) + vec2f(17.3, 5.9));
+  return clamp(0.5 + (a + b - 1.0) * 0.72, 0.0, 1.0);
+}
 fn T(uv: vec2f) -> vec4f { return textureSampleLevel(terr, samp, uv, LOD); }
+
+// ---- materials: 0 sand, 1 wet sand, 2 coral rubble, 3 scrub, 4 grass, 5 burned, 6 airfield, 7 reef, 8 leaf litter
+var<private> MP: vec2f;     // world position (m)
+var<private> MPX: f32;      // metres per device pixel
+var<private> MK: f32;       // anti-tiling noise
+var<private> ACC_C: vec3f;  // accumulated albedo
+var<private> ACC_N: vec2f;  // accumulated tangent normal (xy)
+// Anti-tiled sample (two offset lookups blended by low-frequency noise, after Inigo Quilez) of material i.
+fn matSample(i: i32, w: f32) {
+  if (w < 0.004) { return; }
+  var tiles = array<f32, 9>(8.0, 5.0, 5.0, 4.5, 4.5, 4.0, 5.0, 5.0, 3.5);   // tile size (m), as in assets/tex/manifest.json
+  let tile = tiles[i];
+  // Photo detail only once a tile spans enough pixels; smaller, its repeats read as a regular dot lattice,
+  // so blend toward the material's mean colour (1×1 mip) instead.
+  let fade = smoothstep(20.0, 64.0, tile / MPX);
+  let mean = textureSampleLevel(matAlb, matSamp, vec2f(0.5), i, 9.0).rgb;
+  if (fade <= 0.0) { ACC_C += mean * w; return; }
+  let uvt = MP / tile;
+  let g = MPX / tile;
+  let l = MK * 7.0; let fi = floor(l); let f = fract(l);
+  let oa = sin(vec2f(3.0, 7.0) * fi) * 0.37; let ob = sin(vec2f(3.0, 7.0) * (fi + 1.0)) * 0.37;
+  let dx = vec2f(g, 0.0); let dy = vec2f(0.0, g);
+  let a = textureSampleGrad(matAlb, matSamp, uvt + oa, i, dx, dy).rgb;
+  let b = textureSampleGrad(matAlb, matSamp, uvt + ob, i, dx, dy).rgb;
+  let k = smoothstep(0.2, 0.8, f - 0.1 * (a.r + a.g + a.b - b.r - b.g - b.b));
+  let na = textureSampleGrad(matNrm, matSamp, uvt + oa, i, dx, dy).xy;
+  let nb = textureSampleGrad(matNrm, matSamp, uvt + ob, i, dx, dy).xy;
+  ACC_C += mix(mean, mix(a, b, k), fade) * w;
+  ACC_N += (mix(na, nb, k) * 2.0 - 1.0) * w * fade;
+}
+// hypsometric tint for the elevation view (metres above high water)
+fn hypso(e: f32) -> vec3f {
+  if (e < 0.0) { return mix(vec3f(0.30, 0.55, 0.85), vec3f(0.55, 0.80, 0.92), clamp(e / 3.0 + 1.0, 0.0, 1.0)); }
+  let c0 = vec3f(0.55, 0.78, 0.45); let c1 = vec3f(0.93, 0.90, 0.48); let c2 = vec3f(0.92, 0.62, 0.30); let c3 = vec3f(0.70, 0.34, 0.22);
+  // Betio and Buariki rise only ~3.5 m: spread the ramp over that range
+  if (e < 1.2) { return mix(c0, c1, e / 1.2); }
+  if (e < 2.6) { return mix(c1, c2, (e - 1.2) / 1.4); }
+  return mix(c2, c3, clamp((e - 2.6) / 1.0, 0.0, 1.0));
+}
 
 @fragment fn fs(in: VO) -> @location(0) vec4f {
   let p = u.cam.xy + (in.pos.xy - u.view.xy * 0.5) / u.cam.z;
@@ -83,69 +141,73 @@ fn T(uv: vec2f) -> vec4f { return textureSampleLevel(terr, samp, uv, LOD); }
   let texelsPerPx = 1.0 / (u.cam.z * u.map.z);
   LOD = max(0.0, log2(texelsPerPx));
   var t = T(uv);
+  // vegetation and airfield masks vary cell to cell; blend in the next mip so close up they read as soft
+  // patches broken up by noise rather than a 2 m mosaic
+  let tb = textureSampleLevel(terr, samp, uv, LOD + 1.3);
+  t = vec4f(t.x, t.y, mix(t.z, tb.z, 0.7), mix(t.w, tb.w, 0.45));
   if (outside) { t = vec4f(-40.0, 0.0, 0.0, 0.0); }
   let cell = u.map.z;
-  let e = vec2f(cell, cell) * max(1.0, texelsPerPx) / u.map.xy;
-  let hL = T(uv - vec2f(e.x, 0.0)).x; let hR = T(uv + vec2f(e.x, 0.0)).x;
-  let hU = T(uv - vec2f(0.0, e.y)).x; let hD = T(uv + vec2f(0.0, e.y)).x;
-  var grad = vec2f(hR - hL, hD - hU) / (2.0 * cell);
+  // hillshade from the next mip over a wider baseline: the gradient of bilinear heights is constant per cell and
+  // would show the 2 m grid as a mosaic of flat facets when zoomed in
+  let e = vec2f(cell, cell) * 1.5 * max(1.0, texelsPerPx) / u.map.xy;
+  let gl = LOD + 1.0;
+  let hL = textureSampleLevel(terr, samp, uv - vec2f(e.x, 0.0), gl).x; let hR = textureSampleLevel(terr, samp, uv + vec2f(e.x, 0.0), gl).x;
+  let hU = textureSampleLevel(terr, samp, uv - vec2f(0.0, e.y), gl).x; let hD = textureSampleLevel(terr, samp, uv + vec2f(0.0, e.y), gl).x;
+  var grad = vec2f(hR - hL, hD - hU) / (3.0 * cell);
   if (outside) { grad = vec2f(0.0); }
+  // local mean height (~10 m) for ambient occlusion in craters, trenches and hollows
+  let hMean = textureSampleLevel(terr, samp, uv, LOD + 2.3).x;
   let time = u.cam.w;
   var h = t.x;
   let water = u.map.w;
   let depth = water - h;
   let night = u.misc.x;
+  let tview = u.misc.w > 0.5;
+  let hw = fwidth(h);                 // (uniform control flow) for contour lines
   var col: vec3f;
   var emis = 0.0;
 
-  // micro detail
+  // noise
   let fd1 = detailFade(1.0); let fd2 = detailFade(4.0);
   let n1 = fbm(p * 0.08);
-  var n2 = 0.0; var n3 = 0.0;
-  if (fd1 > 0.0) { n2 = vnoise(p * 1.0) * fd1; }
-  if (fd2 > 0.0) { n3 = vnoise(p * 4.0) * fd2; }
-  // close-zoom detail (centred on 0.5 so it fades to neutral)
-  let fd3 = detailFade(7.0); let fd4 = detailFade(18.0);
-  var n4 = 0.5; var n5 = 0.5; var blade = 0.5;
-  if (fd3 > 0.0) {
-    n4 = mix(0.5, textureSampleLevel(noiseTex, nsamp, (p * 7.0 + vec2f(3.1, 7.7)) * NS, 0.0).g, fd3);
-    let bp = vec2f(p.x * 0.8 + p.y * 0.6, p.y * 0.8 - p.x * 0.6);
-    blade = mix(0.5, textureSampleLevel(noiseTex, nsamp, vec2f(bp.x * 22.0, bp.y * 4.0) * NS, 0.0).b, fd3);
-  }
-  if (fd4 > 0.0) { n5 = mix(0.5, textureSampleLevel(noiseTex, nsamp, (p * 18.0 + vec2f(9.4, 1.2)) * NS, 0.0).a, fd4); }
+  var n2 = 0.5; var n3 = 0.5;
+  if (fd1 > 0.0) { n2 = mix(0.5, vnoiseR(p * 1.0), fd1); }
+  if (fd2 > 0.0) { n3 = mix(0.5, vnoiseR(p * 0.35), fd2); }
+  MP = p; MPX = 1.0 / u.cam.z; MK = vnoise(p * 0.11 + vec2f(4.2, 1.7));
+  ACC_C = vec3f(0.0); ACC_N = vec2f(0.0);
 
-  // ---------- land ----------
-  let inland = smoothstep(1.0, 2.4, h);
-  var sand = mix(vec3f(0.90, 0.85, 0.70), vec3f(0.80, 0.74, 0.58), n1);
-  sand = mix(sand, vec3f(0.70, 0.66, 0.50), inland * 0.55);
-  let wet = smoothstep(0.35, -0.05, -depth);
-  // coral grit and broken shell/coral fragments
-  sand *= 0.93 + 0.14 * n5 + 0.08 * (n4 - 0.5);
-  let fdp = detailFade(6.0);
-  if (fdp > 0.0) {
-    let pv = textureSampleLevel(noiseTex, nsamp, (p * 6.0 + vec2f(11.0, 5.0)) * NS, 0.0).r;
-    let peb = smoothstep(0.84, 0.87, pv) * fdp;
-    let rim = smoothstep(0.80, 0.84, pv) * (1.0 - smoothstep(0.84, 0.87, pv)) * fdp;
-    sand = mix(sand, sand * 0.8, rim * 0.5);
-    sand = mix(sand, vec3f(0.94, 0.92, 0.86) * (0.92 + 0.16 * n5), peb * 0.5);
+  // ---------- land: material weights, layered bottom to top ----------
+  let above = h - water;
+  let inland = smoothstep(0.7, 2.0, above);
+  let wetW = smoothstep(0.4, -0.02, above);
+  let coralW = inland * smoothstep(0.42, 0.7, n1 + (n3 - 0.5) * 0.45) * (1.0 - wetW);
+  let vegAmt = smoothstep(0.06, 0.55, t.z + (n2 - 0.5) * 0.25 + (n3 - 0.5) * 0.3);
+  let dense = smoothstep(0.42, 0.75, t.z + (n1 - 0.5) * 0.35);
+  let scrubW = vegAmt * (1.0 - dense);
+  let grassW = vegAmt * dense * 0.85;
+  let litterW = vegAmt * dense * smoothstep(0.6, 0.8, vnoiseR(p * 0.07 + vec2f(3.0, 9.0)) + (n2 - 0.5) * 0.25) * 0.55;
+  let airW = smoothstep(0.3, 0.9, t.w);
+  // effective weights = own weight × what every later layer leaves visible
+  let w8 = litterW; let w6 = airW;
+  let k6 = 1.0 - w6; let k8 = k6 * (1.0 - w8);
+  let k4 = k8 * (1.0 - grassW); let k3 = k4 * (1.0 - scrubW); let k2 = k3 * (1.0 - coralW); let k1 = k2 * (1.0 - wetW);
+  if (depth < 0.1) {
+    matSample(0, k1);
+    matSample(1, k2 * wetW);
+    matSample(2, k3 * coralW);
+    matSample(3, k4 * scrubW);
+    matSample(4, k8 * grassW);
+    matSample(8, k6 * w8);
+    matSample(6, w6);
   }
-  sand = mix(sand, vec3f(0.62, 0.56, 0.44), wet * 0.8);
-  var vegc = mix(vec3f(0.26, 0.33, 0.15), vec3f(0.36, 0.40, 0.20), n2 * 0.6 + n1 * 0.4);
-  // scrub grass: streaky blades and darker tuft bases
-  vegc *= 0.72 + 0.56 * blade * (0.6 + 0.8 * n4) - 0.12 * (n4 - 0.5);
-  let vegAmt = smoothstep(0.05, 0.6, t.z + (n2 - 0.5) * 0.25 + (n4 - 0.5) * 0.3 + (blade - 0.5) * 0.15);
-  var land = mix(sand, vegc, vegAmt * 0.9);
-  // crushed coral airfield & tracks
-  let air = smoothstep(0.3, 0.9, t.w);
-  var concrete = vec3f(0.80, 0.79, 0.74) * (0.94 + 0.06 * n1);
-  let seam = step(0.97, fract(p.x * 0.1)) * 0.06 + step(0.985, fract(p.y * 0.1)) * 0.05;
-  concrete -= seam * detailFade(0.2);
-  land = mix(land, concrete, air);
-  land *= 0.93 + 0.07 * n2 + 0.05 * (n3 - 0.5);
+  var land = ACC_C * (0.9 + 0.2 * n1);
+  let tn = ACC_N;
+  // ambient occlusion from local relief: hollows darken, crests catch light
+  let ao = clamp(1.0 + (h - hMean) * 0.32, 0.72, 1.06);
 
-  // hillshade
-  let nrm = normalize(vec3f(-grad.x * 2.2, -grad.y * 2.2, 1.0));
-  let shade = clamp(dot(nrm, normalize(u.sun.xyz)) * 1.25, 0.35, 1.25);
+  // relief: terrain gradient (exaggerated so a metre of rise reads from above) + material micro-normals
+  let nrm = normalize(vec3f(-grad.x * 3.2 + tn.x * 0.55, -grad.y * 3.2 - tn.y * 0.55, 1.0));
+  let shade = clamp(dot(nrm, normalize(u.sun.xyz)) * 1.25, 0.32, 1.28) * ao;
 
   // ---------- water ----------
   if (depth > 0.0) {
@@ -154,44 +216,79 @@ fn T(uv: vec2f) -> vec4f { return textureSampleLevel(terr, samp, uv, LOD); }
     let deep = vec3f(0.03, 0.18, 0.33);
     var wc = mix(shallow, mid, smoothstep(0.6, 3.0, depth));
     wc = mix(wc, deep, smoothstep(3.0, 10.0, depth));
-    // visible coral bottom in the shallows
-    let coral = mix(vec3f(0.78, 0.74, 0.60), vec3f(0.58, 0.55, 0.45), select(n1, vnoise(p * 0.35), detailFade(0.35) > 0.0) * 0.6 + n2 * 0.4);
-    var caust = 0.0;
-    if (fd1 > 0.0 && depth < 2.5) { caust = vnoise(p * 0.45 + vec2f(time * 0.25, time * 0.17)) * vnoise(p * 0.7 - vec2f(time * 0.18, -time * 0.21)); }
-    let bottom = coral * (0.9 + 0.3 * caust * fd1);
-    let clarity = exp(-depth * 0.9);
-    wc = mix(wc, bottom * vec3f(0.55, 0.9, 0.95), clarity * 0.85);
-    // waves
+    // waves: two scrolling normal octaves
     let w1 = vnoise(p * 0.12 + vec2f(time * 0.25, time * 0.1));
     let w2 = vnoise(p * 0.25 - vec2f(time * 0.3, -time * 0.22));
-    let wn = normalize(vec3f((w1 - 0.5) * 0.5 + (w2 - 0.5) * 0.25 * fd1, (w2 - 0.5) * 0.4, 1.0));
-    let spec = pow(max(dot(reflect(-normalize(u.sun.xyz), wn), vec3f(0.0, 0.0, 1.0)), 0.0), 40.0);
-    wc += vec3f(spec) * 0.35 * (1.0 - night);
+    var w3 = 0.5;
+    if (fd1 > 0.0) { w3 = mix(0.5, vnoiseR(p * 0.9 + vec2f(time * 0.6, -time * 0.4)), fd1 * 0.7); }
+    let wn = normalize(vec3f((w1 - 0.5) * 0.5 + (w3 - 0.5) * 0.35, (w2 - 0.5) * 0.4 + (w3 - 0.5) * 0.2, 1.0));
+    // reef flat / sandy bottom seen through clear water, refracted by the waves
+    let refr = wn.xy * min(depth, 2.0) * 0.6;
+    MP = p + refr;
+    MPX = max(MPX, 0.05) * (1.0 + depth * 1.5);   // light scattering in the water column softens the bottom
+    ACC_C = vec3f(0.0); ACC_N = vec2f(0.0);
+    let sandyBottom = smoothstep(-1.4, -0.2, -depth) * (0.6 + 0.4 * n3);
+    if (depth < 6.0) { matSample(7, 1.0 - sandyBottom); matSample(0, sandyBottom); }
+    var caust = 0.0;
+    if (fd1 > 0.0 && depth < 2.5) { caust = vnoise(p * 0.45 + vec2f(time * 0.25, time * 0.17)) * vnoise(p * 0.7 - vec2f(time * 0.18, -time * 0.21)); }
+    let bottom = mix(vec3f(dot(ACC_C, vec3f(0.333))), ACC_C, 0.8) * (0.9 + 0.4 * caust * fd1);
+    let clarity = exp(-depth * 0.75);
+    wc = mix(wc, bottom * vec3f(0.55, 0.88, 0.92), clarity * 0.88);
+    let spec = pow(max(dot(reflect(-normalize(u.sun.xyz), wn), vec3f(0.0, 0.0, 1.0)), 0.0), 60.0);
+    wc += vec3f(spec) * 0.45 * (1.0 - night);
+    // sky reflection (fresnel-ish on wave slopes)
+    wc = mix(wc, vec3f(0.55, 0.72, 0.82), clamp((1.0 - wn.z) * 1.1, 0.0, 0.18) * (1.0 - night) * smoothstep(0.3, 2.0, depth));
     wc *= 0.95 + 0.07 * w1;
     // surf: breaking waves where the reef drops off
     let slope = length(grad);
     let surfZone = smoothstep(0.03, 0.12, slope) * smoothstep(9.0, 1.5, depth) * smoothstep(0.3, 1.2, depth);
     let crest = smoothstep(0.75, 0.95, sin(h * 3.0 - time * 1.6 + vnoise(p * 0.05) * 6.0) * 0.5 + 0.5);
     let foam1 = surfZone * crest * (0.6 + 0.4 * vnoise(p * 0.7 + time));
-    // shoreline foam
-    let shore = smoothstep(0.18, 0.0, depth) * (0.55 + 0.45 * sin(time * 1.3 + p.x * 0.05 + p.y * 0.04));
+    // shoreline foam: lacy, following the swash
+    let swash = sin(time * 1.3 + p.x * 0.05 + p.y * 0.04);
+    let shore = smoothstep(0.22, 0.0, depth + swash * 0.05) * smoothstep(0.35, 0.65, vnoiseR(p * 1.6 + vec2f(time * 0.3, 0.0)) + 0.25);
     let foam = clamp(foam1 + shore * (0.6 + 0.4 * n2), 0.0, 1.0);
     wc = mix(wc, vec3f(0.95, 0.97, 0.96), foam * 0.85);
-    // soft transition to the beach
+    // soft transition to the beach (wet sand darkens just above the swash)
     let edge = smoothstep(0.0, 0.06, depth);
     col = mix(land * shade, wc, edge);
   } else {
     col = land * shade;
   }
-  // decals (craters, scorches, trenches)
+  // decals (craters, scorches, trenches) carry the burned-ground texture as detail
   let dc = textureSampleLevel(decal, samp, (p + warp * 0.5) / (vec2f(textureDimensions(decal)) * u.misc.z), max(0.0, log2(1.0 / (u.cam.z * u.misc.z))));
-  col = mix(col, dc.rgb, dc.a * (1.0 - smoothstep(0.1, 0.5, depth)));
+  if (dc.a > 0.01 && depth < 0.5) {
+    MP = p; ACC_C = vec3f(0.0); ACC_N = vec2f(0.0);
+    matSample(5, 1.0);
+    let burnt = mix(vec3f(1.0), ACC_C / vec3f(0.36, 0.33, 0.28), 0.75 * smoothstep(0.7, 0.2, dot(dc.rgb, vec3f(0.333))));
+    col = mix(col, dc.rgb * burnt * shade, dc.a * (1.0 - smoothstep(0.1, 0.5, depth)));
+  }
+  // elevation view: hypsometric tint, contour lines every 0.5 m (bold every 2 m), obstacles hatched
+  if (tview) {
+    let lum = dot(col, vec3f(0.3, 0.55, 0.15));
+    let el = h - water;
+    col = mix(vec3f(lum), hypso(el), 0.62) * mix(1.0, shade, 0.6);
+    let c = el / 0.5;
+    let wpx = max(hw / 0.5, 1e-4);
+    let line = 1.0 - smoothstep(0.6, 1.6, abs(fract(c + 0.5) - 0.5) / wpx);
+    let c2 = el / 2.0;
+    let line2 = 1.0 - smoothstep(1.0, 2.2, abs(fract(c2 + 0.5) - 0.5) / max(hw / 2.0, 1e-4));
+    col = mix(col, vec3f(0.30, 0.20, 0.12), line * 0.55);
+    col = mix(col, vec3f(0.18, 0.10, 0.06), line2 * 0.75);
+    if (t.y > 0.4) { let hatch = step(0.5, fract((p.x + p.y) * 0.7)); col = mix(col, vec3f(0.25, 0.18, 0.12), 0.45 * hatch * smoothstep(0.4, 1.0, t.y)); }
+  }
+  // cast shadows (slightly cool, like skylight filling the shade); fainter on deep water
+  let sh = shadowAt(in.pos.xy) * (1.0 - 0.45 * smoothstep(0.5, 4.0, depth));
+  col *= mix(vec3f(1.0), vec3f(1.0 - SHADOW_DIM * 1.04, 1.0 - SHADOW_DIM, 1.0 - SHADOW_DIM * 0.86), sh);
   let lit = lighting(p, col, emis);
   return vec4f(lit, 1.0);
 }
 `;
 
 export const SPRITE_WGSL = COMMON + /* wgsl */`
+@group(0) @binding(11) var atlasA: texture_2d<f32>;   // pre-rendered sprites (tools/render_sprites.py): albedo + alpha
+@group(0) @binding(12) var atlasN: texture_2d<f32>;   // normal xy, height/8 m, ambient occlusion
+@group(0) @binding(13) var atlasS: sampler;
 struct VI {
   @location(0) a: vec4f,  // x, y, hw, hh
   @location(1) b: vec4f,  // rot, kind, p0, p1
@@ -207,6 +304,7 @@ struct VO {
   @location(4) col: vec4f,
   @location(5) hs: vec2f,      // half size
   @location(6) extra: vec2f,   // p4, p5
+  @location(7) @interpolate(flat) rot: f32,
 };
 @vertex fn vs(@builtin(vertex_index) vi: u32, inst: VI) -> VO {
   var corners = array<vec2f, 6>(vec2f(-1.0, -1.0), vec2f(1.0, -1.0), vec2f(1.0, 1.0), vec2f(-1.0, -1.0), vec2f(1.0, 1.0), vec2f(-1.0, 1.0));
@@ -221,7 +319,7 @@ struct VO {
   o.pos = vec4f(clip.x, -clip.y, 0.0, 1.0);
   o.q = q; o.wp = w; o.kind = i32(inst.b.y + 0.5);
   o.prm = vec4f(inst.b.z, inst.b.w, inst.d.x, inst.d.y);
-  o.col = inst.c; o.hs = hs; o.extra = inst.d.zw;
+  o.col = inst.c; o.hs = hs; o.extra = inst.d.zw; o.rot = r;
   return o;
 }
 
@@ -261,7 +359,22 @@ fn soldier(q: vec2f, hs: vec2f, prm: vec4f, col: vec4f, extra: vec2f) {
   let walk = sin(anim * 9.0) * 0.18;
   // extra detail only once the figure is big on screen (half-size in device px)
   let det = clamp((hs.x * u.cam.z - 9.0) / 9.0, 0.0, 1.0);
-  if (det > 0.0 && sub < 0.4) {
+  // selection / hover highlight: glow and a crisp border hugging the silhouette
+  let selF = extra.y;
+  if (selF > 0.0) {
+    var sil: f32;
+    if (stance >= 2) { sil = min(sdSeg(s, vec2f(-1.0, 0.0), vec2f(0.5, 0.0), 0.3), sdSeg(s, vec2f(0.25, 0.18), vec2f(0.98, 0.2), 0.07)); }
+    else { sil = min(min(sdEll(s, vec2f(0.31, select(0.53, 0.49, stance == 1))), sdCircle(s - vec2f(0.06, 0.0), 0.3)), sdSeg(s, vec2f(0.0, 0.26), vec2f(0.9, 0.28), 0.05)); }
+    var sc = vec3f(1.0, 0.86, 0.38);                       // selected
+    if (selF > 1.5 && selF < 2.5) { sc = vec3f(1.0, 0.55, 0.15); }  // selected, pinned / cowering
+    if (selF > 2.5) { sc = vec3f(1.0, 0.3, 0.25); }          // selected, wounded
+    if (selF < 0.9) { sc = vec3f(0.8, 0.92, 1.0); }          // hover
+    let w = AA * 1.6;
+    let ga = clamp(1.0 - (sil - w) / (AA * 5.0), 0.0, 1.0) * select(0.55, 0.35, selF < 0.9);
+    px.c = sc; px.a = ga;
+    fill(sil - w, sc);
+  }
+  if (det > 0.0 && sub < 0.4 && selF <= 0.0) {
     // soft contact shadow
     let sd = select(sdEll(s - vec2f(-0.03, 0.03), vec2f(0.42, 0.62)), sdSeg(s, vec2f(-0.9, 0.04), vec2f(0.5, 0.04), 0.34), stance >= 2);
     let sa = clamp(0.5 - sd / 0.18, 0.0, 1.0) * 0.28 * det;
@@ -628,6 +741,7 @@ fn plane(q: vec2f, hs: vec2f) {
 }
 
 @fragment fn fs(in: VO) -> @location(0) vec4f {
+  let dqx = dpdx(in.q); let dqy = dpdy(in.q);   // (uniform control flow) for atlas mip selection
   AA = max(1.0 / u.cam.z, 0.008) * 1.2;
   px.c = vec3f(0.0); px.a = 0.0;
   let q = in.q; let hs = in.hs; let prm = in.prm; let col = in.col;
@@ -685,6 +799,37 @@ fn plane(q: vec2f, hs: vec2f) {
       let a = smoothstep(0.15, 0.0, abs(v)) * smoothstep(-1.0, 0.6, s.x) * smoothstep(1.0, 0.7, s.x) * col.a * (0.6 + 0.4 * vnoise(q * 2.0 - u.cam.w * 2.0));
       return vec4f(vec3f(0.9, 0.95, 0.97) * a * u.amb.w, a);
     }
+    case 48: { // pre-rendered atlas sprite: p0 = 1 destroyed, p1 = 1 canopy (no shadow received); p2..p5 = atlas rect
+      let rect = vec4f(prm.z, prm.w, in.extra.x, in.extra.y);
+      let st = q / hs * 0.5 + 0.5;
+      let uv = rect.xy + st * rect.zw;
+      let sc = rect.zw / (2.0 * hs);
+      let A = textureSampleGrad(atlasA, atlasS, uv, dqx * sc, dqy * sc);
+      if (A.a < 0.02) { discard; }
+      let Nm = textureSampleGrad(atlasN, atlasS, uv, dqx * sc, dqy * sc);
+      let nl = Nm.xy * 2.0 - 1.0;
+      let cs = cos(in.rot); let sn = sin(in.rot);
+      let nw = vec3f(nl.x * cs - nl.y * sn, nl.x * sn + nl.y * cs, sqrt(max(0.0, 1.0 - dot(nl, nl))));
+      let diff = max(dot(nw, normalize(u.sun.xyz)), 0.0);
+      var c = A.rgb;
+      if (prm.x > 0.5) {   // burnt-out wreck: charred paint, soot, rust
+        let n = fbm2(q * 2.2 + vec2f(prm.z * 50.0, 0.0));
+        c = mix(c * 0.32, vec3f(0.10, 0.09, 0.08), smoothstep(0.35, 0.7, n));
+        c = mix(c, vec3f(0.36, 0.20, 0.11), smoothstep(0.62, 0.8, fbm2(q * 4.0 + 3.0)) * 0.6);
+      }
+      let shade = mix(1.0, 0.45 + 0.75 * diff, u.sun.w) * Nm.a;
+      let sh = shadowAt(in.pos.xy) * (1.0 - prm.y);
+      let lit = lighting(in.wp, c * shade * (1.0 - SHADOW_DIM * sh), 0.0);
+      let a = A.a * col.a;
+      return vec4f(lit * a, a);
+    }
+    case 47: { // selection / hover frame around a vehicle: glow + crisp border
+      let d = sdRBox(q, hs - vec2f(AA * 3.0), min(hs.x, hs.y) * 0.3);
+      let glow = clamp(1.0 - d / (AA * 6.0), 0.0, 1.0) * step(0.0, d) * 0.55;
+      let line = clamp(1.0 - (abs(d) - AA * 0.9) / AA, 0.0, 1.0);
+      let a = max(glow, line) * col.a;
+      return vec4f(col.rgb * a, a);
+    }
     case 35: { // foxhole / pit marker
       let d = sdCircle(q, hs.x * 0.8);
       fillA(d, vec3f(0.3, 0.26, 0.2), 0.6);
@@ -727,12 +872,82 @@ fn plane(q: vec2f, hs: vec2f) {
     default: { return vec4f(0.0); }
   }
   if (px.a <= 0.001) { discard; }
-  let lit = lighting(in.wp, px.c * col.rgb, emis);
+  // ground-level sprites receive cast shadows; palm canopies, aircraft and ships stand above them
+  var recv = 1.0;
+  if (k == 3 || k == 34 || k == 40 || k == 47) { recv = 0.0; }
+  let sh = shadowAt(in.pos.xy) * recv;
+  let lit = lighting(in.wp, px.c * col.rgb * (1.0 - SHADOW_DIM * sh), emis);
   let a = px.a * col.a;
   return vec4f(lit * a, a);
 }
-`;
 
+// ---------------------------------------------------------------- cast shadows
+// Caster instance: a = (x, y, hw, hh) footprint; b = (rot, shape, height m, darkness);
+// c = (seed, damage, mask own footprint, extra penumbra m). Shapes: 0 upright cylinder (r = hw), 1 box, 2 sand mound, 3 palm.
+// The footprint is swept along the sun direction by its height; the mask pass keeps the darkest value per pixel.
+struct VOS {
+  @builtin(position) pos: vec4f,
+  @location(0) lp: vec2f,                         // metres from the footprint centre
+  @location(1) @interpolate(flat) S: vec2f,       // shadow sweep vector
+  @location(2) @interpolate(flat) hs: vec2f,
+  @location(3) @interpolate(flat) b: vec4f,
+  @location(4) @interpolate(flat) c: vec4f,
+  @location(5) @interpolate(flat) d: vec4f,       // shape 4: atlas rect
+};
+fn shadowVec() -> vec2f { return -u.sun.xy / max(u.sun.z, 0.2); }
+@vertex fn vsShadow(@builtin(vertex_index) vi: u32, inst: VI) -> VOS {
+  var corners = array<vec2f, 6>(vec2f(-1.0, -1.0), vec2f(1.0, -1.0), vec2f(1.0, 1.0), vec2f(-1.0, -1.0), vec2f(1.0, 1.0), vec2f(-1.0, 1.0));
+  let S = shadowVec() * inst.b.z;
+  let R = length(inst.a.zw) + 0.3 + inst.b.z * 0.06 + inst.c.w + 2.0 / u.cam.z;
+  let lp = S * 0.5 + corners[vi] * (vec2f(R) + abs(S) * 0.5);
+  let clip = (inst.a.xy + lp - u.cam.xy) * u.cam.z * 2.0 * u.view.zw;
+  var o: VOS;
+  o.pos = vec4f(clip.x, -clip.y, 0.0, 1.0);
+  o.lp = lp; o.S = S; o.hs = inst.a.zw; o.b = inst.b; o.c = inst.c; o.d = inst.d;
+  return o;
+}
+@fragment fn fsShadow(in: VOS) -> @location(0) vec4f {
+  let pxm = 1.0 / u.cam.z;
+  let h = in.b.z; let shape = i32(in.b.y + 0.5); let rot = in.b.x; let hs = in.hs; let S = in.S;
+  let soft = max(pxm * 1.2, in.c.w + h * 0.035);
+  var d = 1e9; var d0 = 1e9;
+  if (shape == 0) {
+    d = sdSeg(in.lp, vec2f(0.0), S, hs.x);
+    d0 = length(in.lp) - hs.x;
+  } else if (shape == 4) {
+    // pre-rendered palm: the crown's own silhouette from the atlas at canopy height, trunk underneath
+    let cs = rot2(in.lp - S, rot) / hs * 0.5 + 0.5;
+    var cov = 0.0;
+    if (all(cs > vec2f(0.0)) && all(cs < vec2f(1.0))) { cov = textureSampleLevel(atlasA, atlasS, in.d.xy + cs * in.d.zw, 1.5).a; }
+    d = (0.5 - cov) * soft * 2.0;
+    d = min(d, sdSeg(in.lp, vec2f(0.0), S * 0.97, 0.17));
+  } else if (shape == 3) {
+    // palm: the frond silhouette (same construction as the sprite) at canopy height, trunk underneath
+    let cs = rot2(in.lp - S, rot) / hs.x;
+    let r = length(cs);
+    let seed = in.c.x; let dmg = in.c.y;
+    let N = 7.0 + floor(seed * 3.0);
+    let fa = atan2(cs.y, cs.x) / 6.2831853 * N + seed * 13.0;
+    let idx = floor(fa);
+    let fl = 0.75 + 0.25 * hash21(vec2f(idx, seed * 100.0));
+    let len = fl * (1.0 - step(hash21(vec2f(idx + 3.0, seed * 50.0)), dmg) * 0.55);
+    let ang = abs(fract(fa) - 0.5) * 2.0;
+    let leaf = ang - 0.55 * (1.0 - r / len) * (0.5 + r);
+    d = max(leaf * 0.3, r - len) * hs.x;
+    d = min(d, sdSeg(in.lp, vec2f(0.0), S * 0.97, 0.17));
+  } else {
+    let rr = select(0.0, min(hs.x, hs.y) * 0.6, shape == 2);
+    let n = clamp(ceil(length(S) / min(hs.x, hs.y)), 1.0, 24.0);
+    for (var i = 0.0; i <= n; i += 1.0) { d = min(d, sdRBox(rot2(in.lp - S * (i / n), rot), hs, rr)); }
+    d0 = sdRBox(rot2(in.lp, rot), hs, rr);
+  }
+  var a = clamp(0.5 - d / soft, 0.0, 1.0) * in.b.w;
+  // a caster that also receives shadows must not shade itself
+  if (in.c.z > 0.5) { a *= clamp(0.5 + d0 / (pxm * 1.2), 0.0, 1.0); }
+  if (a <= 0.003) { discard; }
+  return vec4f(a, 0.0, 0.0, a);
+}
+`;
 export const DECAL_WGSL = /* wgsl */`
 struct DU { scale: vec4f };  // 2/texW*mPerTexel... : x = metres->clip x scale, y = y scale
 @group(0) @binding(0) var<uniform> du: DU;

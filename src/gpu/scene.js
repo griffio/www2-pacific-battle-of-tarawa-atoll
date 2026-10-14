@@ -5,38 +5,84 @@ import { K } from '../kinds.js';
 import { STRUCT_SPECS } from '../world/betio.js';
 import { normAngle } from '../util.js';
 
-const SH = [0.42, 0.3]; // shadow offset per metre of height
 const WEP = { rifle: 0, mg: 1, hmg: 1, auto: 1, at: 2, flame: 3, smg: 4, mortar: 5, pistol: 6, cannon: 5, coastal: 5 };
-const TALL = { [K.BUILDING]: 3.5, [K.HUT]: 2.5, [K.HULK]: 6, [K.TRUCK]: 1.6, [K.CRATE]: 1.2, [K.TRAP]: 1, [K.SEAWALL]: 1.1, [K.RUBBLE]: 0.6 };
+// cast-shadow heights (m) of map props; shapes: 0 upright cylinder, 1 box, 2 sand mound, 3 palm (see fsShadow)
+const TALL = { [K.BUILDING]: 4.2, [K.HUT]: 3.2, [K.HULK]: 7, [K.TRUCK]: 2.4, [K.CRATE]: 1.4, [K.TRAP]: 1.2, [K.SEAWALL]: 1.4, [K.RUBBLE]: 0.9, [K.PIER]: 1.8 };
+const VEH_H = { [K.LVT]: 2.6, [K.LCVP]: 2.2, [K.LCM]: 2.6, [K.RAFT]: 0.5, [K.SHERMAN]: 2.9, [K.STUART]: 2.4, [K.HAGO]: 2.2 };
+const STANCE_H = [1.75, 1.15, 0.38, 0.3, 0.3];
+const SEL_COL = { sel: [1, 0.86, 0.38], hover: [0.8, 0.92, 1] };
+// pre-rendered atlas sprites (assets/sprites): model crown radius of the palms, turret pivots ahead of hull centre (m)
+const PALM_R = 4.4;
+const TURRET = { [K.SHERMAN]: ['sherman', 0.25], [K.STUART]: ['stuart', 0.1], [K.HAGO]: ['hago', 0.45] };
 
 export class Scene {
   constructor(renderer, map) {
     this.r = renderer; this.map = map;
     this.low = new InstanceList(4096); this.canopy = new InstanceList(4096);
     this.alpha = new InstanceList(16384); this.add = new InstanceList(4096);
+    this.shadowStatic = new InstanceList(4096); this.shadows = new InstanceList(8192);
+    this.hoverTeam = null;
     this.fx = new FX(renderer);
     this.staticBuilt = false;
   }
   buildStatic(g) {
-    const L = this.low, C = this.canopy, map = this.map;
-    L.clear(); C.clear();
-    const shadow = (x, y, hw, hh, rot, h, rect) => L.push(x + SH[0] * h, y + SH[1] * h, hw, hh, rot, K.SHADOW, rect ? 1 : 0, 0, 1, 1, 1, 1);
-    for (const p of map.props) { const h = TALL[p.k]; if (h) shadow(p.x, p.y, p.hw, p.hh, p.rot, h, true); }
+    const L = this.low, C = this.canopy, S = this.shadowStatic, map = this.map;
+    L.clear(); C.clear(); S.clear();
+    // shadow casters: (x, y, hw, hh, rot, shape, height, darkness, seed, damage, mask-self, penumbra)
+    for (const p of map.props) {
+      if (p.k === K.STUMP) { S.push(p.x, p.y, 0.32, 0.32, 0, 0, 2 + p.p0 * 3, 0.9, 0, 0, 1, 0); continue; }
+      const h = TALL[p.k];
+      if (h) S.push(p.x, p.y, p.hw, p.hh, p.rot, 1, p.k === K.RUBBLE ? h * (0.5 + p.p1 * 0.6) : h, p.k === K.PIER ? 0.8 : 1, 0, 0, p.k === K.PIER ? 0 : 1, 0);
+    }
     const structs = g ? g.structures : map.structures;
-    for (const s of structs) if (s.type !== 'hulk') { const sp = STRUCT_SPECS[s.type]; shadow(s.x, s.y, s.h / 2, s.w / 2, s.dir, sp.height * 0.8, true); }
-    for (const c of map.canopy) L.push(c.x + SH[0] * 8, c.y + SH[1] * 8, c.hw * 0.9, c.hh * 0.9, 0, K.SHADOW, 0, 0, 1, 1, 1, 0.7);
+    for (const s of structs) if (s.type !== 'hulk') {
+      const sp = STRUCT_SPECS[s.type], h = sp.height * (s.destroyed ? 0.5 : 1);
+      if (s.type === 'coastgun' || s.type === 'steelpb') S.push(s.x, s.y, s.w / 2 * 0.85, s.w / 2 * 0.85, 0, 0, h, 1, 0, 0, 1, 0);
+      else if (sp.mound) S.push(s.x, s.y, s.h / 2, s.w / 2, s.dir, 2, h * 0.8, 0.9, 0, 0, 1, Math.min(2, h * 0.2));
+      else S.push(s.x, s.y, s.h / 2, s.w / 2, s.dir, 1, h, 1, 0, 0, 1, 0);
+    }
+    const man = this.r.spriteMan;
+    const palmSprite = (c) => {
+      if (!man) return null;
+      const group = c.p1 < 0.25 ? ['palm', 6] : c.p1 < 0.65 ? ['palm_hit', 5] : ['palm_dead', 3];
+      return man.sprites[group[0] + Math.floor(c.p0 * group[1] * 0.999)];
+    };
+    for (const c of map.canopy) {
+      const ps = palmSprite(c);
+      if (ps) { const k = c.hw / PALM_R; S.push(c.x, c.y, ps.half[0] * k, ps.half[1] * k, c.rot, 4, 9 + c.p0 * 6, 0.9 - c.p1 * 0.2, c.p0, c.p1, 0, 0, ...ps.uv); }
+      else S.push(c.x, c.y, c.hw, c.hh, c.rot, 3, 9 + c.p0 * 6, 0.85 - c.p1 * 0.3, c.p0, c.p1, 0, 0);
+    }
     for (const p of map.positions) {
       if (p.type === 'mgnest') L.push(p.x, p.y, 3.4, 3.4, p.dir, K.MGNEST, 0, 0, 1, 1, 1, 1);
       else if (p.type === 'gunpit') L.push(p.x, p.y, 5.6, 5.6, p.dir, K.SANDBAG, 0, 0, 1, 1, 1, 1);
       else if (p.type === 'revet') L.push(p.x, p.y, 6, 6, p.dir, K.REVET, 0, 0, 1, 1, 1, 1);
     }
-    for (const p of map.props) L.push(p.x, p.y, p.hw, p.hh, p.rot, p.k, p.p0, p.p1, 1, 1, 1, 1, p.p2, p.p3);
+    // atlas sprite scaled per axis to a footprint (x along the sprite's forward axis)
+    const atlasFit = (list, name, x, y, fx, fy, rot, dead) => {
+      const a = man && man.sprites[name];
+      if (!a) return false;
+      const mx = a.model ? a.model[0] : a.sx, my = a.model ? a.model[1] : a.sy;
+      list.push(x, y, a.half[0] * fx / mx, a.half[1] * fy / my, rot, K.ATLAS, dead ? 1 : 0, 0, 1, 1, 1, 1, ...a.uv);
+      return true;
+    };
+    for (const p of map.props) {
+      if (p.k === K.BUILDING && atlasFit(L, p.p1 < 0.5 ? 'shed0' : 'shed1', p.x, p.y, p.hw * 2, p.hh * 2, p.rot, p.p0 > 0.5)) continue;
+      if (p.k === K.HUT && atlasFit(L, p.p1 < 0.5 ? 'hut0' : 'hut1', p.x, p.y, p.hw * 2, p.hh * 2, p.rot, p.p0 > 0.5)) continue;
+      L.push(p.x, p.y, p.hw, p.hh, p.rot, p.k, p.p0, p.p1, 1, 1, 1, 1, p.p2, p.p3);
+    }
     for (const s of structs) {
       if (s.type === 'hulk') continue;
       const sp = STRUCT_SPECS[s.type];
+      if (atlasFit(L, 'st_' + s.type, s.x, s.y, s.h, s.w, s.dir, s.destroyed)) continue;
       L.push(s.x, s.y, s.h / 2, s.w / 2, s.dir, sp.sprite, s.destroyed ? 1 : 0, 0, 1, 1, 1, 1);
     }
-    for (const c of map.canopy) C.push(c.x, c.y, c.hw, c.hh, c.rot, K.PALM, c.p0, c.p1, 1, 1, 1, 1);
+    for (const c of map.canopy) {
+      const ps = palmSprite(c);
+      if (ps) {
+        const k = c.hw / PALM_R, v = 0.92 + ((c.p0 * 7.13) % 1) * 0.14;
+        C.push(c.x, c.y, ps.half[0] * k, ps.half[1] * k, c.rot, K.ATLAS, 0, 1, v, v * (0.97 + c.p0 * 0.06), v * 0.96, 1, ...ps.uv);
+      } else C.push(c.x, c.y, c.hw, c.hh, c.rot, K.PALM, c.p0, c.p1, 1, 1, 1, 1);
+    }
     this.staticBuilt = true;
   }
 
@@ -57,11 +103,37 @@ export class Scene {
       }
     };
     copyCulled(this.low, A, 4);
+    // static shadow casters (margin covers the sweep)
+    const SW = this.shadows; SW.clear();
+    { const d = this.shadowStatic.data;
+      // far out, palm and stump shadows are sub-pixel smudges that cost a lot of fill: keep only buildings & forts
+      const small = zoomCss < 0.55;
+      for (let i = 0; i < this.shadowStatic.n; i++) {
+        const o = i * 16;
+        if (small && (d[o + 5] === 3 || d[o + 5] === 4 || d[o + 5] === 0)) continue;
+        const r = Math.max(d[o + 2], d[o + 3]) + d[o + 6] * 1.4 + 2;
+        if (d[o] < x0 - r || d[o] > x1 + r || d[o + 1] < y0 - r || d[o + 1] > y1 + r) continue;
+        SW.ensure(1); SW.data.set(d.subarray(o, o + 16), SW.n * 16); SW.n++;
+      } }
     if (!g) { copyCulled(this.canopy, A, 2); return; }
     const T = g.T;
     const lerp = (a, b) => a + (b - a) * interp;
     const sz = Math.max(1.15, 4.2 / zoomCss);
     const time = g.time;
+    const hoverTeam = this.hoverTeam;
+    // selection / hover state per soldier and vehicle: 1 selected, 2 selected + pinned, 3 selected + wounded, 0.5 hover
+    const selCode = (s) => {
+      const t = s.team;
+      if (t && t.selected) return s.state === 'incap' ? 3 : s.status === 'pinned' || s.status === 'cowering' ? 2 : 1;
+      return t && t === hoverTeam ? 0.5 : 0;
+    };
+    const selVeh = new Map();
+    for (const t of g.teams) {
+      const v = t.vehicle || t.embarked;
+      if (!v) continue;
+      if (t.selected) selVeh.set(v, 1); else if (t === hoverTeam && !selVeh.has(v)) selVeh.set(v, 0.5);
+    }
+    const kSoldier = sz / 1.15;
     // bodies & incapacitated
     for (const s of g.soldiers) {
       if (s.state !== 'dead' && s.state !== 'incap') continue;
@@ -70,11 +142,13 @@ export class Scene {
       if (s.side === 'JP' && s.lastSeen[0] === 0 && s.visT[0] < time) continue;
       const depth = T.depthAt(s.x, s.y);
       if (depth > 0.9) continue;
-      L_soldier(A, s, s.x, s.y, sz * 1.25, s.state === 'dead' ? 4 : 3, time, depth, 0.95);
+      L_soldier(A, s, s.x, s.y, sz * 1.25, s.state === 'dead' ? 4 : 3, time, depth, 0.95, s.state === 'incap' ? selCode(s) : 0);
+      if (depth < 0.2 && zoomCss > 0.7) SW.push(s.x, s.y, 0.3 * kSoldier, 0.3 * kSoldier, 0, 0, 0.3 * kSoldier, 0.8, 0, 0, 1, 0);
     }
-    // vehicles
-    for (const v of g.vehicles) {
-      if (v.carried && !v.cargoVehOf) { /* drawn inside its LCM */ }
+    // vehicles (carried tanks last, so they sit inside their LCM's well)
+    const man = this.r.spriteMan;
+    const order = g.vehicles.filter(v => !v.carried).concat(g.vehicles.filter(v => v.carried));
+    for (const v of order) {
       const x = lerp(v.px, v.x), y = lerp(v.py, v.y);
       if (!inView(x, y, 12)) continue;
       if (v.side === 'JP' && v.visT[0] < time && v.state !== 'destroyed') continue;
@@ -84,10 +158,27 @@ export class Scene {
       let a = 1 - v.sinking * 0.75;
       v._phase = (v._phase || 0) + v.speed * dt * 1.2;
       const depth = T.depthAt(x, y);
-      if (!dead || depth < 1) A.push(x + SH[0] * 1.5 * vs, y + SH[1] * 1.5 * vs, spec.len / 2 * vs, spec.wid / 2 * vs, v.dir, K.SHADOW, 1, 0, 1, 1, 1, a * (depth > 0.2 ? 0.4 : 1));
+      const vh = (VEH_H[spec.sprite] || 2.2) * (dead ? 0.8 : 1) - Math.max(0, Math.min(depth, 1.2)) * (spec.kind === 'track' ? 1 : 0.4);
+      if (vh > 0.2 && a > 0.3) SW.push(x, y, spec.len / 2 * vs, spec.wid / 2 * vs, v.dir, 1, vh * vs, a, 0, 0, 1, 0);
+      const sv = selVeh.get(v);
+      if (sv) { const c = sv === 1 ? SEL_COL.sel : SEL_COL.hover; A.push(x, y, spec.len / 2 * vs + 1, spec.wid / 2 * vs + 1, v.dir, K.SELBOX, 0, 0, c[0], c[1], c[2], sv === 1 ? 0.95 : 0.7); }
       if (v.wake > 0.3 && !dead) A.push(x - Math.cos(v.dir) * spec.len * 0.9 * vs, y - Math.sin(v.dir) * spec.len * 0.9 * vs, spec.len * 0.9 * vs, spec.wid * 1.6 * vs, v.dir, K.WAKE, 0, 0, 1, 1, 1, Math.min(1, v.wake / 2));
       const cargo = v.cargo.length > 0 ? 1 : 0;
-      if (spec.sprite === K.LVT) A.push(x, y, spec.len / 2 * vs, spec.wid / 2 * vs, v.dir, K.LVT, dead ? 1 : 0, cargo, 1, 1, 1, a, v._phase, spec.variant || 0);
+      const atlasName = !man ? null : spec.sprite === K.LVT ? (spec.variant ? 'lvt2' : 'lvt1') + (cargo ? '_load' : '')
+        : spec.sprite === K.LCVP ? (v.ramp > 0.5 ? 'lcvp_ramp' : cargo ? 'lcvp_load' : 'lcvp')
+        : spec.sprite === K.LCM ? (v.ramp > 0.5 ? 'lcm_ramp' : 'lcm')
+        : TURRET[spec.sprite] ? TURRET[spec.sprite][0] : null;
+      const sp = atlasName && man.sprites[atlasName];
+      if (sp) {
+        const k = spec.len / sp.len * vs, ox = -(sp.shift || 0) * k, c = Math.cos(v.dir), s = Math.sin(v.dir);
+        A.push(x + c * ox, y + s * ox, sp.half[0] * k, sp.half[1] * k, v.dir, K.ATLAS, dead ? 1 : 0, 0, 1, 1, 1, a, ...sp.uv);
+        const tur = TURRET[spec.sprite] && man.sprites[TURRET[spec.sprite][0] + '_turret'];
+        if (tur) {
+          const off = TURRET[spec.sprite][1] * k;
+          A.push(x + c * off, y + s * off, tur.half[0] * k, tur.half[1] * k, v.tdir, K.ATLAS, dead ? 1 : 0, 0, 1, 1, 1, a, ...tur.uv);
+        }
+      }
+      else if (spec.sprite === K.LVT) A.push(x, y, spec.len / 2 * vs, spec.wid / 2 * vs, v.dir, K.LVT, dead ? 1 : 0, cargo, 1, 1, 1, a, v._phase, spec.variant || 0);
       else if (spec.sprite === K.LCVP || spec.sprite === K.LCM) A.push(x, y, spec.len / 2 * vs, spec.wid / 2 * vs, v.dir, spec.sprite, dead ? 1 : 0, cargo, 1, 1, 1, a, 0, v.ramp);
       else if (spec.sprite === K.RAFT) A.push(x, y, spec.len / 2 * vs, spec.wid / 2 * vs, v.dir, K.RAFT, dead ? 1 : 0, cargo, 1, 1, 1, a);
       else A.push(x, y, spec.len / 2 * vs, spec.wid / 2 * vs, v.dir, spec.sprite, dead ? 1 : 0, normAngle(v.tdir - v.dir), 1, 1, 1, a, v._phase, 0);
@@ -101,6 +192,7 @@ export class Scene {
         if (s.side === 'JP' && s.visT[0] < time && s.lastSeen[0] === 0) continue;
         if (!inView(s.x, s.y, 4)) continue;
         A.push(s.x + Math.cos(s.dir) * 1.2, s.y + Math.sin(s.dir) * 1.2, 2.4, 1.2, s.dir, K.FIELDGUN, 0, 0, 1, 1, 1, 1);
+        SW.push(s.x + Math.cos(s.dir) * 1.2, s.y + Math.sin(s.dir) * 1.2, 1.6, 0.7, s.dir, 1, 1.2, 0.9, 0, 0, 1, 0);
       }
     }
     // living soldiers
@@ -112,7 +204,9 @@ export class Scene {
       if (!inView(x, y, 3)) continue;
       const depth = T.depthAt(x, y);
       const st = s.stance;
-      L_soldier(A, s, x, y, st === 2 ? sz * 1.25 : sz, st, s.moving ? s.anim : 0, depth, 1);
+      L_soldier(A, s, x, y, st === 2 ? sz * 1.25 : sz, st, s.moving ? s.anim : 0, depth, 1, selCode(s));
+      const sh = (STANCE_H[st] - Math.max(0, depth)) * kSoldier;
+      if (sh > 0.15 && zoomCss > 0.7) SW.push(x, y, 0.27 * kSoldier, 0.27 * kSoldier, 0, 0, sh, 1, 0, 0, 1, 0);
     }
     const endSoldiers = A.n;
     // tracked-vehicle tread marks
@@ -183,7 +277,7 @@ export class Scene {
   }
 }
 
-function L_soldier(A, s, x, y, size, stance, anim, depth, alpha) {
+function L_soldier(A, s, x, y, size, stance, anim, depth, alpha, sel = 0) {
   const wcls = WEP[s.wpn.cls] ?? 0;
-  A.push(x, y, size, size, s.dir, stance >= 3 ? K.BODY : K.SOLDIER, stance, wcls, 1, 1, 1, alpha, s.sideIdx, anim, Math.max(0, depth), 0);
+  A.push(x, y, size, size, s.dir, stance >= 3 ? K.BODY : K.SOLDIER, stance, wcls, 1, 1, 1, alpha, s.sideIdx, anim, Math.max(0, depth), sel);
 }

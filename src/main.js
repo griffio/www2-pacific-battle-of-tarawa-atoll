@@ -65,6 +65,11 @@ class App {
       $('btn-start').disabled = true;
       return;
     }
+    this.loading('Loading terrain textures…');
+    await Promise.all([
+      this.renderer.loadMaterials('assets/tex/').catch(e => console.warn('Terrain textures unavailable, using flat colours:', e)),
+      this.renderer.loadSprites('assets/sprites/').catch(e => console.warn('Sprite atlas unavailable, using vector sprites:', e)),
+    ]);
     this.hud = new HUD(this);
     this.bindUI();
     this.bindInput();
@@ -105,6 +110,12 @@ class App {
     this.renderer.setMap(map);
     this.scene = new Scene(this.renderer, map);
     this.game = game;
+    this.spotHeights = game ? findSpotHeights(map.terrain) : [];
+  }
+  toggleTerrainView(force) {
+    this.terrainView = force ?? !this.terrainView;
+    $('btn-terrain').classList.toggle('on', this.terrainView);
+    this.audio.ui('ui_click');
   }
 
   // ------------------------------------------------------------------ screens
@@ -386,6 +397,7 @@ class App {
       this.hud.update(true);
     });
     $('btn-menu').onclick = () => this.togglePauseMenu();
+    $('btn-terrain').onclick = () => this.toggleTerrainView();
     $('pm-resume').onclick = () => this.togglePauseMenu(false);
     $('pm-help').onclick = () => { $('help').classList.remove('hidden'); };
     $('help-close').onclick = () => $('help').classList.add('hidden');
@@ -403,7 +415,7 @@ class App {
   }
   async showCredits() {
     $('credits').classList.remove('hidden');
-    const parts = await Promise.all(['assets/sfx/CREDITS.md', 'assets/voice/CREDITS.md'].map(u => fetch(u).then(r => r.ok ? r.text() : '').catch(() => '')));
+    const parts = await Promise.all(['assets/tex/CREDITS.md', 'assets/sfx/CREDITS.md', 'assets/voice/CREDITS.md'].map(u => fetch(u).then(r => r.ok ? r.text() : '').catch(() => '')));
     $('credits-body').innerHTML = parts.map(md).join('<hr>');
   }
   togglePauseMenu(force) {
@@ -516,8 +528,10 @@ class App {
   hover(sx, sy) {
     if (this.screen !== 'battle' || !this.game) return;
     const [wx, wy] = this.s2w(sx, sy);
+    this.cursorW = [wx, wy];
     const t = this.targetAt(wx, wy);
     this.hoverStruct = t && t.garrison !== undefined ? t : null;
+    this.scene.hoverTeam = t ? null : this.friendlyAt(wx, wy);
     if (this.orderMode && !this.orderMode.startsWith('support')) this.losPoint = [wx, wy];
     this.ovCanvas.style.cursor = this.orderMode ? 'crosshair' : t && this.selection.size ? 'crosshair' : 'default';
   }
@@ -584,6 +598,7 @@ class App {
     else if (pauseOpen) return;
     else if (k === '1' || k === '2' || k === '3') this.setSpeed([1, 2, 4][+k - 1]);
     else if (k === 'x') this.issueOrder('stop', 0, 0, null);
+    else if (k === 't') this.toggleTerrainView();
     else if (k === 'u') this.issueOrder('unload', 0, 0, null);
     else if (k === 'tab') {
       e.preventDefault();
@@ -654,9 +669,9 @@ class App {
     const tint = light.tint || [1, 1, 1];
     const env = {
       time: t / 1000, water: map.terrain.water, tint, ambient: light.ambient, night: light.night || 0,
-      sun: [-0.45, -0.55, 0.7], lights: this.scene.lights(g, view),
+      sun: [-0.45, -0.55, 0.7], terrainView: this.terrainView && this.screen === 'battle', shadow: clamp(1 - (light.night || 0) * 1.3, 0, 1), lights: this.scene.lights(g, view),
     };
-    this.renderer.render({ x: this.cam.x, y: this.cam.y, zoomDev: this.cam.zoom * this.dpr }, env, this.scene.alpha, this.scene.add);
+    this.renderer.render({ x: this.cam.x, y: this.cam.y, zoomDev: this.cam.zoom * this.dpr }, env, this.scene.alpha, this.scene.add, this.scene.shadows);
     // overlay & HUD
     if (this.screen === 'battle') {
       this.overlay.draw(this);
@@ -735,3 +750,18 @@ function md(text) {
 const app = new App();
 window.tarawa = app;
 app.boot();
+
+// Spot heights for the elevation view: the highest point of each ~40 m block that also tops everything within 70 m.
+function findSpotHeights(T) {
+  const out = [], B = 40, R = 70;
+  const cand = [];
+  for (let by = 0; by < T.h; by += B) for (let bx = 0; bx < T.w; bx += B) {
+    let best = -1e9, bxm = 0, bym = 0;
+    for (let y = by; y < Math.min(T.h, by + B); y += T.cell) for (let x = bx; x < Math.min(T.w, bx + B); x += T.cell) {
+      const g = T.groundAt(x, y); if (g > best) { best = g; bxm = x; bym = y; }
+    }
+    if (best - T.water > 0.6) cand.push({ x: bxm, y: bym, h: best });
+  }
+  for (const c of cand) if (!cand.some(o => o !== c && o.h > c.h && Math.hypot(o.x - c.x, o.y - c.y) < R)) out.push({ x: c.x, y: c.y, e: c.h - T.water });
+  return out;
+}
