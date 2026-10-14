@@ -42,6 +42,9 @@ class App {
     this.gpuCanvas = $('gpu'); this.ovCanvas = $('overlay');
     this.overlay = new Overlay(this.ovCanvas);
     this.audio = new Audio();
+    // close blasts shake the camera (screen pixels, decays quickly)
+    this.shake = 0;
+    this.audio.onShock = (k) => { if (this.screen === 'battle') this.shake = Math.max(this.shake, 3 + k * 9); };
     this.cam = { x: 0, y: 0, zoom: 1 };
     this.selection = new Set();
     this.orderMode = null; this.losPoint = null; this.box = null; this.hoverStruct = null;
@@ -671,7 +674,12 @@ class App {
       time: t / 1000, water: map.terrain.water, tint, ambient: light.ambient, night: light.night || 0,
       sun: [-0.45, -0.55, 0.7], terrainView: this.terrainView && this.screen === 'battle', shadow: clamp(1 - (light.night || 0) * 1.3, 0, 1), lights: this.scene.lights(g, view),
     };
-    this.renderer.render({ x: this.cam.x, y: this.cam.y, zoomDev: this.cam.zoom * this.dpr }, env, this.scene.alpha, this.scene.add, this.scene.shadows);
+    let sx = 0, sy = 0;
+    if (this.shake > 0.2) {
+      sx = (Math.random() - 0.5) * 2 * this.shake / this.cam.zoom; sy = (Math.random() - 0.5) * 2 * this.shake / this.cam.zoom;
+      this.shake *= Math.exp(-dtReal * 7);
+    } else this.shake = 0;
+    this.renderer.render({ x: this.cam.x + sx, y: this.cam.y + sy, zoomDev: this.cam.zoom * this.dpr }, env, this.scene.alpha, this.scene.add, this.scene.shadows);
     // overlay & HUD
     if (this.screen === 'battle') {
       this.overlay.draw(this);
@@ -716,7 +724,8 @@ class App {
       switch (e.t) {
         case 'sound': this.audio.play(e.id, e.x, e.y, e.vol, e.rate); break;
         case 'voice': this.audio.voice(e.id, e.x, e.y, { radio: e.radio, prio: e.prio }); break;
-        case 'whiz': this.audio.whiz(e.x, e.y); break;
+        case 'whiz': this.audio.whiz(e.x, e.y, e.cls); break;
+        case 'impact': fx.handle(e, g); if (!e.hard) this.audio.impact(e.x, e.y, e.water); break;
         default: fx.handle(e, g);
       }
     }

@@ -1,46 +1,296 @@
 {
-  "_note": "Each key is a sound id; the game loads assets/sfx/<id>.mp3 if present, otherwise synthesises a fallback. 'loop' sounds must loop seamlessly.",
-  "rifle_us":        {"desc": "M1 Garand rifle single shot, outdoor, punchy", "maxLen": 1.2},
-  "rifle_jp":        {"desc": "bolt-action rifle single shot (Arisaka), slightly sharper/thinner than rifle_us", "maxLen": 1.2},
-  "smg":             {"desc": "Thompson submachine gun short burst (3-5 rounds)", "maxLen": 1.2},
-  "bar":             {"desc": "Browning Automatic Rifle short burst (3-5 rounds), heavier than smg", "maxLen": 1.2},
-  "mg_us":           {"desc": ".30 cal Browning machine gun burst ~1s", "maxLen": 1.6},
-  "mg_jp":           {"desc": "Japanese Type 92 heavy machine gun burst ~1s, slower 'woodpecker' cadence", "maxLen": 1.6},
-  "mg_50":           {"desc": ".50 cal heavy machine gun burst ~1s, deep thump", "maxLen": 1.6},
-  "bazooka":         {"desc": "rocket launcher firing whoosh", "maxLen": 2.0},
-  "flamethrower":    {"desc": "flamethrower burst roar/whoosh ~2s", "maxLen": 3.0},
-  "grenade":         {"desc": "hand grenade explosion", "maxLen": 2.5},
-  "explosion_small": {"desc": "mortar round explosion", "maxLen": 2.5},
-  "explosion_large": {"desc": "artillery / naval shell explosion, big boom", "maxLen": 3.5},
-  "explosion_huge":  {"desc": "very large demolition / bunker destroyed explosion with debris", "maxLen": 4.5},
-  "cannon_tank":     {"desc": "tank main gun (75mm) firing", "maxLen": 2.5},
-  "cannon_small":    {"desc": "small cannon (37mm) firing, sharp crack", "maxLen": 2.0},
-  "cannon_distant":  {"desc": "distant heavy naval gun boom", "maxLen": 3.0},
-  "shell_incoming":  {"desc": "incoming artillery shell whistle ~1.5s", "maxLen": 2.5},
-  "mortar_launch":   {"desc": "mortar tube 'thunk' launch", "maxLen": 1.5},
-  "ricochet":        {"desc": "bullet ricochet whine", "maxLen": 1.0},
-  "bullet_flyby":    {"desc": "bullet whizzing past / supersonic crack", "maxLen": 0.8},
-  "bullet_impact":   {"desc": "bullet impact into sand/dirt", "maxLen": 0.6},
-  "metal_hit":       {"desc": "bullet hitting armour plate / metal clang", "maxLen": 0.8},
-  "splash_big":      {"desc": "large shell exploding in water, big splash", "maxLen": 3.0},
-  "splash_small":    {"desc": "small splash, body/object into water", "maxLen": 1.2},
-  "wading":          {"desc": "LOOP: people wading through shallow water", "maxLen": 6.0, "loop": true},
-  "engine_lvt":      {"desc": "LOOP: tracked amphibian / truck engine idle-running", "maxLen": 6.0, "loop": true},
-  "engine_tank":     {"desc": "LOOP: tank engine with track squeak/clank", "maxLen": 6.0, "loop": true},
-  "engine_boat":     {"desc": "LOOP: diesel boat engine", "maxLen": 6.0, "loop": true},
-  "ramp_drop":       {"desc": "heavy metal ramp dropping / clang", "maxLen": 2.0},
-  "surf":            {"desc": "LOOP: ocean surf / waves ambience", "maxLen": 20.0, "loop": true},
-  "wind":            {"desc": "LOOP: wind through palms ambience", "maxLen": 20.0, "loop": true},
-  "battle_distant":  {"desc": "LOOP: distant battle ambience, far gunfire & explosions", "maxLen": 20.0, "loop": true},
-  "night_insects":   {"desc": "LOOP: tropical night insects / crickets", "maxLen": 20.0, "loop": true},
-  "flare":           {"desc": "flare / star shell pop and fizz", "maxLen": 2.5},
-  "plane_flyby":     {"desc": "WW2 propeller fighter plane flyby/dive", "maxLen": 5.0},
-  "ui_click":        {"desc": "short soft UI click", "maxLen": 0.3},
-  "ui_select":       {"desc": "short UI confirm/select blip", "maxLen": 0.4},
-  "radio_squelch":   {"desc": "radio static squelch / click (start of radio message)", "maxLen": 0.8},
-  "whistle":         {"desc": "officer's whistle blast (charge signal)", "maxLen": 2.0},
-  "reload":          {"desc": "rifle reload / bolt or clip insertion", "maxLen": 1.2},
-  "garand_ping":     {"desc": "M1 Garand en-bloc clip ejection 'ping' (metallic ping)", "maxLen": 0.8},
-  "debris":          {"desc": "debris / sand falling after explosion", "maxLen": 2.5},
-  "bugle":           {"desc": "short military bugle call (victory / start of battle)", "maxLen": 6.0}
+ "_note": "Each key is a sound id; the game loads assets/sfx/<id>.mp3 if present, otherwise synthesises a fallback. 'loop' sounds must loop seamlessly.",
+ "rifle_us": {
+  "desc": "M1 Garand rifle single shot, outdoor, punchy",
+  "maxLen": 1.2,
+  "variants": 2,
+  "src": [
+   385785,
+   386842
+  ]
+ },
+ "rifle_jp": {
+  "desc": "bolt-action rifle single shot (Arisaka), slightly sharper/thinner than rifle_us",
+  "maxLen": 1.2
+ },
+ "smg": {
+  "desc": "Thompson submachine gun short burst (3-5 rounds)",
+  "maxLen": 1.2,
+  "variants": 4,
+  "src": [
+   675603
+  ]
+ },
+ "bar": {
+  "desc": "Browning Automatic Rifle short burst (3-5 rounds), heavier than smg",
+  "maxLen": 1.2,
+  "variants": 3,
+  "src": [
+   675657
+  ]
+ },
+ "mg_us": {
+  "desc": ".30 cal Browning machine gun burst ~1s",
+  "maxLen": 1.6,
+  "variants": 4,
+  "src": [
+   486042
+  ]
+ },
+ "mg_jp": {
+  "desc": "Japanese Type 92 heavy machine gun burst ~1s, slower 'woodpecker' cadence",
+  "maxLen": 1.6
+ },
+ "mg_50": {
+  "desc": ".50 cal heavy machine gun burst ~1s, deep thump",
+  "maxLen": 1.6,
+  "variants": 6,
+  "src": [
+   183656,
+   239138
+  ]
+ },
+ "bazooka": {
+  "desc": "rocket launcher firing whoosh",
+  "maxLen": 2.0,
+  "variants": 2,
+  "src": [
+   438531
+  ]
+ },
+ "flamethrower": {
+  "desc": "flamethrower burst roar/whoosh ~2s",
+  "maxLen": 3.0,
+  "variants": 2,
+  "src": [
+   395038
+  ]
+ },
+ "grenade": {
+  "desc": "hand grenade explosion",
+  "maxLen": 2.5,
+  "variants": 1,
+  "src": [
+   609587
+  ]
+ },
+ "explosion_small": {
+  "desc": "mortar round explosion",
+  "maxLen": 2.5,
+  "variants": 2,
+  "src": [
+   516914,
+   609587
+  ]
+ },
+ "explosion_large": {
+  "desc": "artillery / naval shell explosion, big boom",
+  "maxLen": 3.5,
+  "variants": 1,
+  "src": [
+   530163
+  ]
+ },
+ "explosion_huge": {
+  "desc": "very large demolition / bunker destroyed explosion with debris",
+  "maxLen": 4.5,
+  "variants": 1,
+  "src": [
+   251401
+  ]
+ },
+ "cannon_tank": {
+  "desc": "tank main gun (75mm) firing",
+  "maxLen": 2.5,
+  "variants": 2,
+  "src": [
+   127845,
+   702455
+  ]
+ },
+ "cannon_small": {
+  "desc": "small cannon (37mm) firing, sharp crack",
+  "maxLen": 2.0,
+  "variants": 3,
+  "src": [
+   675587
+  ]
+ },
+ "cannon_distant": {
+  "desc": "distant heavy naval gun boom",
+  "maxLen": 3.0,
+  "variants": 2,
+  "src": [
+   162365
+  ]
+ },
+ "shell_incoming": {
+  "desc": "incoming artillery shell whistle ~1.5s",
+  "maxLen": 2.5,
+  "variants": 2,
+  "src": [
+   483296
+  ]
+ },
+ "mortar_launch": {
+  "desc": "mortar tube 'thunk' launch",
+  "maxLen": 1.5,
+  "variants": 3,
+  "src": [
+   438535
+  ]
+ },
+ "ricochet": {
+  "desc": "bullet ricochet whine",
+  "maxLen": 1.0,
+  "variants": 3,
+  "src": [
+   675953
+  ]
+ },
+ "bullet_flyby": {
+  "desc": "bullet whizzing past / supersonic crack",
+  "maxLen": 0.8
+ },
+ "bullet_impact": {
+  "desc": "bullet impact into sand/dirt",
+  "maxLen": 0.6
+ },
+ "metal_hit": {
+  "desc": "bullet hitting armour plate / metal clang",
+  "maxLen": 0.8
+ },
+ "splash_big": {
+  "desc": "large shell exploding in water, big splash",
+  "maxLen": 3.0
+ },
+ "splash_small": {
+  "desc": "small splash, body/object into water",
+  "maxLen": 1.2
+ },
+ "wading": {
+  "desc": "LOOP: people wading through shallow water",
+  "maxLen": 6.0,
+  "loop": true
+ },
+ "engine_lvt": {
+  "desc": "LOOP: tracked amphibian / truck engine idle-running",
+  "maxLen": 6.0,
+  "loop": true
+ },
+ "engine_tank": {
+  "desc": "LOOP: tank engine with track squeak/clank",
+  "maxLen": 6.0,
+  "loop": true
+ },
+ "engine_boat": {
+  "desc": "LOOP: diesel boat engine",
+  "maxLen": 6.0,
+  "loop": true
+ },
+ "ramp_drop": {
+  "desc": "heavy metal ramp dropping / clang",
+  "maxLen": 2.0
+ },
+ "surf": {
+  "desc": "LOOP: ocean surf / waves ambience",
+  "maxLen": 20.0,
+  "loop": true
+ },
+ "wind": {
+  "desc": "LOOP: wind through palms ambience",
+  "maxLen": 20.0,
+  "loop": true
+ },
+ "battle_distant": {
+  "desc": "LOOP: distant battle ambience, far gunfire & explosions",
+  "maxLen": 20.0,
+  "loop": true,
+  "src": [
+   675609,
+   675604
+  ]
+ },
+ "night_insects": {
+  "desc": "LOOP: tropical night insects / crickets",
+  "maxLen": 20.0,
+  "loop": true
+ },
+ "flare": {
+  "desc": "flare / star shell pop and fizz",
+  "maxLen": 2.5
+ },
+ "plane_flyby": {
+  "desc": "WW2 propeller fighter plane flyby/dive",
+  "maxLen": 5.0
+ },
+ "ui_click": {
+  "desc": "short soft UI click",
+  "maxLen": 0.3
+ },
+ "ui_select": {
+  "desc": "short UI confirm/select blip",
+  "maxLen": 0.4
+ },
+ "radio_squelch": {
+  "desc": "radio static squelch / click (start of radio message)",
+  "maxLen": 0.8
+ },
+ "whistle": {
+  "desc": "officer's whistle blast (charge signal)",
+  "maxLen": 2.0
+ },
+ "reload": {
+  "desc": "rifle reload / bolt or clip insertion",
+  "maxLen": 1.2
+ },
+ "garand_ping": {
+  "desc": "M1 Garand en-bloc clip ejection 'ping' (metallic ping)",
+  "maxLen": 0.8
+ },
+ "debris": {
+  "desc": "debris / sand falling after explosion",
+  "maxLen": 2.5
+ },
+ "bugle": {
+  "desc": "short military bugle call (victory / start of battle)",
+  "maxLen": 6.0
+ },
+ "carbine": {
+  "desc": "M1 carbine single shot",
+  "variants": 1,
+  "src": [
+   46655
+  ]
+ },
+ "cannon_field": {
+  "desc": "75 mm field / pack howitzer firing",
+  "variants": 2,
+  "src": [
+   127845,
+   702245
+  ]
+ },
+ "cannon_heavy": {
+  "desc": "8-inch coast-defence gun firing, close",
+  "variants": 3,
+  "src": [
+   162365
+  ]
+ },
+ "near_miss": {
+  "desc": "bullets cracking past and hitting nearby (heard by the target)",
+  "variants": 4,
+  "src": [
+   675602,
+   675945
+  ]
+ },
+ "bullet_crack": {
+  "desc": "single supersonic bullet crack",
+  "variants": 1,
+  "src": [
+   855248
+  ]
+ }
 }

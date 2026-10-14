@@ -262,7 +262,7 @@ function fireRound(g, s) {
     if (hit) g.hitSoldier(t, s);
     suppress(g, t, w.sup * (1 - (1 - s.aimFrac) * 0.5) * (hit ? 1.4 : 1), s);
     if (!hit) { const sc = 1.2 + d * 0.012; ix += (g.rng() - 0.5) * sc * 2; iy += (g.rng() - 0.5) * sc * 2; }
-    if (t.side === 'US' && ri === 1) g.emit({ t: 'whiz', x: t.x, y: t.y });
+    if (t.side === 'US' && ri === 1) g.emit({ t: 'whiz', x: t.x, y: t.y, cls: w.cls });
   } else if (k === 'veh') {
     const v = s.target;
     const p = w.acc * ACC * rangeFactor(w, d) * shooterMod(g, s) * 1.6;

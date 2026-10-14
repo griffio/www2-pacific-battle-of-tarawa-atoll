@@ -1,5 +1,20 @@
 // WebAudio engine: positional SFX relative to the camera, ambience loops, engine loops,
 // voice queue (unit shouts + radio traffic through a band-pass "radio" chain), synthesised fallbacks.
+// Weapons and explosions get recorded variants, an outdoor reverb send that grows with distance, speed-of-sound
+// delay, a sub-bass thump, falling debris and, when close, a brief "shell-shock" muffle (see PROFILE).
+
+// rev: reverb send; thump: sub-bass layer; debris: falling debris after the blast; shock: muffle + camera shake when close
+const PROFILE = {
+  rifle_us: { rev: 0.2 }, rifle_jp: { rev: 0.2 }, carbine: { rev: 0.17 }, smg: { rev: 0.16 }, bar: { rev: 0.22 },
+  mg_us: { rev: 0.24 }, mg_jp: { rev: 0.24 }, mg_50: { rev: 0.28, thump: 0.12 },
+  cannon_small: { rev: 0.32, thump: 0.25 }, cannon_tank: { rev: 0.38, thump: 0.5, shock: 0.2 }, cannon_field: { rev: 0.38, thump: 0.5, shock: 0.2 },
+  cannon_heavy: { rev: 0.5, thump: 0.9, shock: 0.55 }, cannon_distant: { rev: 0.22, thump: 0.2 },
+  bazooka: { rev: 0.28 }, mortar_launch: { rev: 0.22, thump: 0.18 }, flamethrower: { rev: 0.1 },
+  grenade: { rev: 0.32, thump: 0.4, shock: 0.3 }, explosion_small: { rev: 0.38, thump: 0.55, shock: 0.4 },
+  explosion_large: { rev: 0.48, thump: 0.85, debris: 0.45, shock: 0.7 }, explosion_huge: { rev: 0.55, thump: 1, debris: 0.75, shock: 1 },
+  splash_big: { rev: 0.3, thump: 0.45, shock: 0.3 }, plane_flyby: { rev: 0.15 },
+};
+const SPEED_OF_SOUND = 343;
 
 export class Audio {
   constructor() {
@@ -7,8 +22,10 @@ export class Audio {
     this.enabled = true; this.volume = 0.8; this.voiceVol = 1; this.sfxVol = 0.85;
     this.playing = {}; this.loops = {}; this.voiceBusyUntil = 0; this.voiceQueue = [];
     this.listener = { x: 0, y: 0, zoom: 1 };
-    this.lastWhiz = 0;
+    this.lastWhiz = 0; this.lastImpact = 0;
     this.engineSlots = [];
+    this.vars = {}; this.lastVar = {};
+    this.onShock = null;          // (intensity 0..1) => camera shake, set by the app
   }
   init() { return (this._initP ??= this._init()); }
   async _init() {
@@ -18,7 +35,18 @@ export class Audio {
     this.master = c.createGain(); this.master.gain.value = this.volume;
     const comp = c.createDynamicsCompressor();
     comp.threshold.value = -14; comp.knee.value = 12; comp.ratio.value = 5; comp.attack.value = 0.004; comp.release.value = 0.2;
-    this.master.connect(comp).connect(c.destination);
+    // "shell-shock" muffle: a master low-pass that a close blast sweeps down and lets recover
+    this.muffle = c.createBiquadFilter(); this.muffle.type = 'lowpass'; this.muffle.frequency.value = 20000; this.muffle.Q.value = 0.5;
+    // brick-wall-ish limiter after the glue compressor: stacked explosions must never clip
+    const lim = c.createDynamicsCompressor();
+    lim.threshold.value = -3; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.001; lim.release.value = 0.12;
+    this.master.connect(this.muffle).connect(comp).connect(lim).connect(c.destination);
+    this.out = lim;
+    // outdoor reverb: early reflections off dunes, palms and bunkers + a diffuse tail
+    this.revIn = c.createGain();
+    const conv = c.createConvolver(); conv.buffer = this.impulse(2.4);
+    const revOut = c.createGain(); revOut.gain.value = 0.9;
+    this.revIn.connect(conv).connect(revOut).connect(this.master);
     this.sfxBus = c.createGain(); this.sfxBus.gain.value = this.sfxVol; this.sfxBus.connect(this.master);
     this.voiceBus = c.createGain(); this.voiceBus.gain.value = this.voiceVol; this.voiceBus.connect(this.master);
     this.ambBus = c.createGain(); this.ambBus.gain.value = 0.5; this.ambBus.connect(this.master);
@@ -31,6 +59,28 @@ export class Audio {
     const rg = c.createGain(); rg.gain.value = 0.85;
     this.radioIn.connect(hp).connect(lp).connect(peak).connect(sh).connect(rg).connect(this.voiceBus);
     await this.loadAll();
+  }
+  impulse(dur) {
+    const c = this.ctx, sr = c.sampleRate, n = Math.floor(sr * dur);
+    const b = c.createBuffer(2, n, sr);
+    for (let ch = 0; ch < 2; ch++) {
+      const d = b.getChannelData(ch);
+      let lp = 0;
+      for (let i = 0; i < n; i++) {
+        const t = i / sr;
+        // diffuse tail: noise, decaying ~1.9 s RT60, losing highs as it goes
+        const k = 0.5 - 0.42 * Math.min(1, t / dur);
+        lp += ((Math.random() * 2 - 1) - lp) * k;
+        d[i] = lp * Math.exp(-t * 3.6) * Math.min(1, t / 0.03) * 0.5;
+      }
+      // early reflections (slap-back off nearby cover)
+      for (let r = 0; r < 14; r++) {
+        const t = 0.012 + Math.random() * 0.16, i = Math.floor(t * sr);
+        const a = (0.5 + Math.random() * 0.5) * Math.exp(-t * 9) * (Math.random() < 0.5 ? -1 : 1);
+        for (let j = 0; j < 40 && i + j < n; j++) d[i + j] += a * Math.exp(-j / 6);
+      }
+    }
+    return b;
   }
   distCurve(k) {
     const n = 1024, curve = new Float32Array(n);
@@ -53,7 +103,12 @@ export class Audio {
       } catch { return null; }
     };
     const sfxIds = Object.keys(this.manifest).filter(k => !k.startsWith('_'));
-    await Promise.all(sfxIds.map(async (id) => { const b = await load(`assets/sfx/${id}.mp3`); this.buffers[id] = b || this.synth(id); }));
+    await Promise.all(sfxIds.map(async (id) => {
+      const n = this.manifest[id].variants || 1;
+      const bs = (await Promise.all(Array.from({ length: n }, (_, i) => load(`assets/sfx/${id}${i ? '_' + (i + 1) : ''}.mp3`)))).filter(Boolean);
+      this.vars[id] = bs.length ? bs : [this.synth(id)];
+      this.buffers[id] = this.vars[id][0];
+    }));
     this.lines = {};
     for (const l of this.voiceManifest.lines || []) this.lines[l.id] = l;
     await Promise.all((this.voiceManifest.lines || []).map(async (l) => { const b = await load(`assets/voice/${l.id}.mp3`); if (b) this.voices[l.id] = b; }));
@@ -104,32 +159,82 @@ export class Audio {
     const pan = Math.max(-0.85, Math.min(0.85, dx / (ref * 1.5)));
     return { g, pan, d, ref };
   }
+  pickVariant(id) {
+    const v = this.vars[id];
+    if (!v || v.length < 2) return this.buffers[id];
+    let i = (Math.random() * v.length) | 0;
+    if (i === this.lastVar[id]) i = (i + 1) % v.length;   // never the same take twice running
+    this.lastVar[id] = i;
+    return v[i];
+  }
   play(id, x, y, vol = 1, rate = 1, bus = null) {
     if (!this.live || !this.enabled) return null;
-    const b = this.buffers[id];
+    const b = this.pickVariant(id);
     if (!b) return null;
     const { g, pan, d, ref } = this.spatial(x, y);
+    const P = PROFILE[id];
     const gain = vol * g;
-    if (gain < 0.012) return null;
+    // reverb carries further than the dry sound: distant fire is heard mostly as its echo
+    const wet = P && P.rev ? vol * P.rev * Math.sqrt(g) * (0.6 + 0.8 * Math.min(1.5, (d || 0) / (ref || 1))) : 0;
+    if (gain < 0.012 && wet < 0.012) return null;
     // per-id polyphony limit
     const now = this.ctx.currentTime;
     const list = (this.playing[id] = (this.playing[id] || []).filter(e => e.end > now));
     const limit = id.startsWith('rifle') ? 7 : id.startsWith('mg') ? 5 : 4;
     if (list.length >= limit) return null;
-    const src = this.ctx.createBufferSource();
+    const c = this.ctx;
+    // sound travels at 343 m/s: far guns flash before they are heard (capped so play stays readable)
+    const delay = P && d > 40 ? Math.min(1.2, (d - 40) / SPEED_OF_SOUND) : 0;
+    const at = now + delay;
+    const src = c.createBufferSource();
     src.buffer = b; src.playbackRate.value = rate;
-    const gn = this.ctx.createGain(); gn.gain.value = gain;
+    const gn = c.createGain(); gn.gain.value = gain;
     let node = src.connect(gn);
-    // distant sounds get duller
-    if (d !== undefined && d > ref * 0.8) {
-      const f = this.ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = Math.max(700, 9000 * ref / d);
+    // distant sounds get duller (air absorption)
+    if (d !== undefined && d > ref * 0.6) {
+      const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = Math.max(550, 9000 * ref / d);
       node = node.connect(f);
     }
-    if (this.ctx.createStereoPanner) { const p = this.ctx.createStereoPanner(); p.pan.value = pan; node = node.connect(p); }
+    let p = null;
+    if (c.createStereoPanner) { p = c.createStereoPanner(); p.pan.value = pan; node = node.connect(p); }
     node.connect(bus || this.sfxBus);
-    src.start();
-    list.push({ end: now + b.duration / rate });
+    if (wet > 0.004) { const sg = c.createGain(); sg.gain.value = wet; (p || gn).connect(sg).connect(this.revIn); }
+    src.start(at);
+    list.push({ end: at + b.duration / rate });
+    if (P) this.layers(P, vol, g, pan, at, x, y, rate);
     return src;
+  }
+  // sub-bass thump, debris rain and close-blast shell-shock for heavy weapons and explosions
+  layers(P, vol, g, pan, at, x, y, rate) {
+    const c = this.ctx;
+    if (P.thump && g * vol * P.thump > 0.03) {
+      const o = c.createOscillator(), og = c.createGain();
+      const len = 0.45 + P.thump * 0.8;
+      o.type = 'sine';
+      o.frequency.setValueAtTime(62 / Math.max(0.7, rate), at); o.frequency.exponentialRampToValueAtTime(29, at + len * 0.8);
+      const lvl = Math.min(1.1, vol * P.thump * Math.pow(g, 0.7) * 1.1);
+      og.gain.setValueAtTime(0.0001, at); og.gain.exponentialRampToValueAtTime(lvl, at + 0.012); og.gain.exponentialRampToValueAtTime(0.0001, at + len);
+      o.connect(og).connect(this.sfxBus); o.start(at); o.stop(at + len + 0.05);
+    }
+    if (P.debris && g > 0.15) {
+      const t = at + 0.35 + Math.random() * 0.5, b = this.buffers.debris;
+      if (b) {
+        const s = c.createBufferSource(), sg = c.createGain(); s.buffer = b; s.playbackRate.value = 0.85 + Math.random() * 0.3;
+        sg.gain.value = vol * P.debris * g * 0.8;
+        let n = s.connect(sg);
+        if (c.createStereoPanner) { const pp = c.createStereoPanner(); pp.pan.value = pan; n = n.connect(pp); }
+        n.connect(this.sfxBus); s.start(t);
+      }
+    }
+    const k = P.shock ? P.shock * vol * g : 0;
+    if (k > 0.3) {
+      const now = c.currentTime, f = this.muffle.frequency, depth = Math.min(1, (k - 0.3) / 0.7);
+      f.cancelScheduledValues(now); f.setValueAtTime(f.value, now);
+      f.setValueAtTime(f.value, at); f.exponentialRampToValueAtTime(Math.max(380, 2600 * (1 - depth)), at + 0.03);
+      f.exponentialRampToValueAtTime(20000, at + 0.6 + depth * 1.6);
+      const dk = this.ambBus.gain; dk.cancelScheduledValues(now); dk.setValueAtTime(dk.value, at); dk.linearRampToValueAtTime(0.5 * (1 - depth * 0.7), at + 0.05); dk.linearRampToValueAtTime(0.5, at + 1.5 + depth);
+      if (this.onShock) setTimeout(() => this.onShock(Math.min(1, k)), Math.max(0, (at - now) * 1000));
+    }
   }
   ui(id) { this.play(id, undefined, undefined, 0.5); }
 
@@ -203,13 +308,28 @@ export class Audio {
       this.playVoice(v.id, v.x, v.y, v.opts.radio);
     }
   }
-  whiz(x, y) {
+  // rounds passing a target near the camera: supersonic cracks, machine-gun near-miss bursts, ricochets
+  whiz(x, y, cls) {
     const now = this.ctx ? this.ctx.currentTime : 0;
-    if (now - this.lastWhiz < 0.35) return;
+    if (now - this.lastWhiz < 0.25) return;
     const { g } = this.spatial(x, y);
-    if (g < 0.5) return;
+    if (g < 0.45) return;
     this.lastWhiz = now;
-    this.play(Math.random() < 0.8 ? 'bullet_flyby' : 'ricochet', x, y, 0.35, 0.9 + Math.random() * 0.25);
+    const r = Math.random(), heavy = cls === 'mg' || cls === 'hmg' || cls === 'auto';
+    if (heavy && r < 0.45) this.play('near_miss', x, y, 0.42, 0.95 + Math.random() * 0.1);
+    else if (r < 0.85) {
+      this.play('bullet_crack', x, y, 0.5, 0.85 + Math.random() * 0.3);
+      if (Math.random() < 0.5) this.play('bullet_flyby', x, y, 0.22, 0.9 + Math.random() * 0.25);
+    } else this.play('ricochet', x, y, 0.32, 0.9 + Math.random() * 0.25);
+  }
+  // bullet strikes near the camera (sand spray, splashes)
+  impact(x, y, water) {
+    const now = this.ctx ? this.ctx.currentTime : 0;
+    if (now - this.lastImpact < 0.09 || Math.random() > 0.35) return;
+    const { g } = this.spatial(x, y);
+    if (g < 0.4) return;
+    this.lastImpact = now;
+    this.play(water ? 'splash_small' : 'bullet_impact', x, y, water ? 0.18 : 0.26, 0.85 + Math.random() * 0.35);
   }
 
   // ------------------------------------------------ loops

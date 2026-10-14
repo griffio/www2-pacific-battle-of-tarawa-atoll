@@ -9,7 +9,7 @@ export const W = {
   // ---- US ----
   m1:       { name: 'M1 Garand', cls: 'rifle', range: 460, eff: 260, rof: 1.25, burst: 1, mag: 8, ammo: 96, acc: 0.5, sup: 5, snd: 'rifle_us', reload: 2.6, ping: true },
   m1903:    { name: 'M1903A4 Springfield (scoped)', cls: 'rifle', range: 650, eff: 450, rof: 2.4, burst: 1, mag: 5, ammo: 60, acc: 0.82, sup: 5, snd: 'rifle_us', reload: 3.5, pitch: 0.95 },
-  carbine:  { name: 'M1 Carbine', cls: 'rifle', range: 280, eff: 150, rof: 0.95, burst: 1, mag: 15, ammo: 90, acc: 0.42, sup: 3.5, snd: 'rifle_us', pitch: 1.18, reload: 2 },
+  carbine:  { name: 'M1 Carbine', cls: 'rifle', range: 280, eff: 150, rof: 0.95, burst: 1, mag: 15, ammo: 90, acc: 0.42, sup: 3.5, snd: 'carbine', reload: 2 },
   thompson: { name: 'Thompson M1A1', cls: 'smg', range: 160, eff: 70, rof: 1.0, burst: 5, gap: 0.075, mag: 20, ammo: 240, acc: 0.3, sup: 4, snd: 'smg', reload: 2.8 },
   bar:      { name: 'BAR M1918A2', cls: 'auto', range: 560, eff: 360, rof: 1.5, burst: 5, gap: 0.12, mag: 20, ammo: 300, acc: 0.36, sup: 9, snd: 'bar', tracer: true, reload: 3.2 },
   m1919:    { name: 'M1919A4 .30 cal MG', cls: 'mg', range: 950, eff: 650, rof: 1.7, burst: 10, gap: 0.1, mag: 250, ammo: 1750, acc: 0.3, sup: 14, snd: 'mg_us', tracer: true, reload: 6, setup: 3.5, crew: true },
@@ -20,7 +20,7 @@ export const W = {
   m3_75:    { name: '75 mm M3 gun', cls: 'cannon', range: 1300, eff: 900, rof: 5.5, burst: 1, ammo: 97, acc: 0.62, sup: 35, snd: 'cannon_tank', proj: 'shell', speed: 400, he: { power: 2.6, r: 9 }, pen: 85, vsVeh: 200, vsStruct: 140 },
   m6_37:    { name: '37 mm M6 gun', cls: 'cannon', range: 950, eff: 650, rof: 3.2, burst: 1, ammo: 103, acc: 0.6, sup: 20, snd: 'cannon_small', proj: 'shell', speed: 500, he: { power: 1.1, r: 5 }, pen: 55, vsVeh: 100, vsStruct: 45, canister: true },
   m1919c:   { name: 'M1919A4 coax', cls: 'mg', range: 900, eff: 600, rof: 1.6, burst: 9, gap: 0.1, mag: 250, ammo: 4000, acc: 0.3, sup: 12, snd: 'mg_us', tracer: true, reload: 5 },
-  pack75:   { name: '75 mm M1A1 Pack Howitzer', cls: 'cannon', range: 1800, eff: 1200, rof: 6, burst: 1, ammo: 60, acc: 0.6, sup: 35, snd: 'cannon_tank', proj: 'shell', speed: 300, he: { power: 2.6, r: 10 }, pen: 60, vsVeh: 150, vsStruct: 130, crew: true, setup: 8 },
+  pack75:   { name: '75 mm M1A1 Pack Howitzer', cls: 'cannon', range: 1800, eff: 1200, rof: 6, burst: 1, ammo: 60, acc: 0.6, sup: 35, snd: 'cannon_field', proj: 'shell', speed: 300, he: { power: 2.6, r: 10 }, pen: 60, vsVeh: 150, vsStruct: 130, crew: true, setup: 8 },
   // ---- Japan ----
   arisaka:  { name: 'Arisaka Type 99', cls: 'rifle', range: 460, eff: 260, rof: 1.9, burst: 1, mag: 5, ammo: 90, acc: 0.5, sup: 5, snd: 'rifle_jp', reload: 3.2 },
   arisaka97:{ name: 'Type 97 sniper rifle', cls: 'rifle', range: 650, eff: 450, rof: 2.8, burst: 1, mag: 5, ammo: 60, acc: 0.8, sup: 5, snd: 'rifle_jp', reload: 3.5, pitch: 1.05 },
@@ -29,8 +29,8 @@ export const W = {
   type93:   { name: 'Type 93 13 mm twin MG', cls: 'hmg', range: 1200, eff: 800, rof: 1.8, burst: 8, gap: 0.12, ammo: 1600, acc: 0.3, sup: 18, snd: 'mg_50', pitch: 1.12, tracer: true, reload: 4, pen: 20, vsVeh: 3, crew: true },
   knee:     { name: 'Type 89 Grenade Discharger', cls: 'mortar', range: 520, min: 40, eff: 400, rof: 11, burst: 1, ammo: 18, acc: 1, sup: 25, snd: 'mortar_launch', he: { power: 1.0, r: 7 }, indirect: true },
   type94:   { name: 'Type 94 37 mm gun', cls: 'cannon', range: 1100, eff: 700, rof: 3.2, burst: 1, ammo: 80, acc: 0.55, sup: 20, snd: 'cannon_small', proj: 'shell', speed: 500, he: { power: 1.1, r: 5 }, pen: 42, vsVeh: 90, vsStruct: 40, crew: true },
-  type41:   { name: 'Type 41 75 mm Mountain Gun', cls: 'cannon', range: 2200, eff: 1400, rof: 6.5, burst: 1, ammo: 60, acc: 0.5, sup: 35, snd: 'cannon_tank', proj: 'shell', speed: 300, he: { power: 2.5, r: 9 }, pen: 45, vsVeh: 110, vsStruct: 120, crew: true },
-  coastal:  { name: '8-inch Vickers coastal gun', cls: 'coastal', range: 6000, eff: 4000, rof: 28, burst: 1, ammo: 40, acc: 0.35, sup: 60, snd: 'cannon_distant', proj: 'shell', speed: 600, he: { power: 6, r: 18 }, pen: 200, vsVeh: 1000, vsStruct: 400, crew: true },
+  type41:   { name: 'Type 41 75 mm Mountain Gun', cls: 'cannon', range: 2200, eff: 1400, rof: 6.5, burst: 1, ammo: 60, acc: 0.5, sup: 35, snd: 'cannon_field', proj: 'shell', speed: 300, he: { power: 2.5, r: 9 }, pen: 45, vsVeh: 110, vsStruct: 120, crew: true },
+  coastal:  { name: '8-inch Vickers coastal gun', cls: 'coastal', range: 6000, eff: 4000, rof: 28, burst: 1, ammo: 40, acc: 0.35, sup: 60, snd: 'cannon_heavy', proj: 'shell', speed: 600, he: { power: 6, r: 18 }, pen: 200, vsVeh: 1000, vsStruct: 400, crew: true },
   hago37:   { name: 'Type 94 37 mm tank gun', cls: 'cannon', range: 900, eff: 600, rof: 3.4, burst: 1, ammo: 119, acc: 0.52, sup: 20, snd: 'cannon_small', proj: 'shell', speed: 500, he: { power: 1.0, r: 5 }, pen: 38, vsVeh: 80, vsStruct: 30 },
   type97mg: { name: 'Type 97 MG', cls: 'mg', range: 800, eff: 550, rof: 1.7, burst: 8, gap: 0.11, ammo: 2500, acc: 0.3, sup: 11, snd: 'mg_jp', pitch: 1.1, tracer: true, reload: 3 },
   pistol:   { name: 'Type 14 Nambu pistol', cls: 'pistol', range: 50, eff: 25, rof: 1.0, burst: 1, mag: 8, ammo: 40, acc: 0.35, sup: 2, snd: 'rifle_jp', pitch: 1.4, reload: 2 },

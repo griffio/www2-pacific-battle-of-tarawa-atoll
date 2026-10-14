@@ -64,6 +64,10 @@ src/ui/      HUD, overlay (objectives, orders, LOS tool), audio in src/audio/
 
 Fire is colour-coded by side, as the tracer ammunition was in 1943: **US red-orange**, **Japanese green**. Tracer rounds are bold; every other round leaves a faint streak in the same colour; muzzle flashes are directional (hot core, forward cone, side petals), tinted by side, keep a minimum on-screen size when zoomed out, and throw a flicker of light on the ground — most striking at night.
 
+## Sound
+
+Weapons and explosions are real CC0 recordings (`python3 tools/build_sfx.py` cuts them from Freesound sources, several takes per weapon): M1 Garand, M1 carbine, Thompson, BAR, Browning .30 and .50 machine guns, 37 mm anti-tank gun, 75 mm tank and field guns, battleship turret guns for the 8-inch coast gun and naval gunfire, bazooka, mortar, flamethrower, grenades, demolitions, incoming shells, ricochets and bullets cracking past. The engine picks a different take each shot, delays distant sounds by the speed of sound, sends more of a distant sound to an outdoor reverb than its dry signal, adds a sub-bass thump and falling debris under heavy blasts, and — when something big goes off close to the camera — muffles the mix for a moment and shakes the view. Fire passing near the camera's Marines cracks overhead, machine-gun bursts rake the ground around them, and bullet strikes spray sand. A limiter keeps stacked explosions from clipping.
+
 ## Art pipeline
 
 - **Terrain materials** (`assets/tex`): nine CC0 photo textures from [Poly Haven](https://polyhaven.com) (coral sand, wet sand, coral rubble, scrub, grass, burned ground, airfield gravel, reef, leaf litter). `python3 tools/build_textures.py` downloads them, colour-grades them to Tarawa's palette and writes 512² WebP albedo + normal maps. The terrain shader blends them by beach/inland/vegetation/airfield masks with anti-tiling, fading to each material's mean colour when zoomed out.
