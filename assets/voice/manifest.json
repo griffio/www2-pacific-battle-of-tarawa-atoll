@@ -1,0 +1,465 @@
+{
+ "_note": "Game loads assets/voice/<id>.mp3 when present; roles: us/us2 = two distinct US male voices, radio = male voice (radio filter applied at runtime), jp = Japanese male voice, narrator = calm documentary voice.",
+ "lines": [
+  {
+   "id": "us_move_1",
+   "role": "us",
+   "text": "Move out!"
+  },
+  {
+   "id": "us_move_2",
+   "role": "us2",
+   "text": "Let's go, let's go!"
+  },
+  {
+   "id": "us_move_3",
+   "role": "us",
+   "text": "On the move."
+  },
+  {
+   "id": "us_fast_1",
+   "role": "us2",
+   "text": "Double time! Move it!"
+  },
+  {
+   "id": "us_fast_2",
+   "role": "us",
+   "text": "Run for it!"
+  },
+  {
+   "id": "us_sneak_1",
+   "role": "us2",
+   "text": "Keep your heads down. Crawl."
+  },
+  {
+   "id": "us_sneak_2",
+   "role": "us",
+   "text": "Stay low, stay low."
+  },
+  {
+   "id": "us_fire_1",
+   "role": "us2",
+   "text": "Open fire!"
+  },
+  {
+   "id": "us_fire_2",
+   "role": "us",
+   "text": "Pour it on 'em!"
+  },
+  {
+   "id": "us_fire_3",
+   "role": "us2",
+   "text": "Target spotted. Firing!"
+  },
+  {
+   "id": "us_defend_1",
+   "role": "us",
+   "text": "Dig in here."
+  },
+  {
+   "id": "us_ambush_1",
+   "role": "us2",
+   "text": "Hold your fire until I say."
+  },
+  {
+   "id": "us_smoke_1",
+   "role": "us",
+   "text": "Popping smoke!"
+  },
+  {
+   "id": "us_stop_1",
+   "role": "us2",
+   "text": "Hold up!"
+  },
+  {
+   "id": "us_ack_1",
+   "role": "us",
+   "text": "Roger."
+  },
+  {
+   "id": "us_ack_2",
+   "role": "us2",
+   "text": "Aye aye, sir."
+  },
+  {
+   "id": "us_ack_3",
+   "role": "us",
+   "text": "Understood."
+  },
+  {
+   "id": "us_pinned_1",
+   "role": "us2",
+   "text": "We're pinned down!"
+  },
+  {
+   "id": "us_pinned_2",
+   "role": "us",
+   "text": "Can't move! Too much fire!"
+  },
+  {
+   "id": "us_takingfire_1",
+   "role": "us2",
+   "text": "Taking fire!"
+  },
+  {
+   "id": "us_takingfire_2",
+   "role": "us",
+   "text": "Incoming!"
+  },
+  {
+   "id": "us_mg_1",
+   "role": "us2",
+   "text": "Machine gun!"
+  },
+  {
+   "id": "us_pillbox_1",
+   "role": "us",
+   "text": "Pillbox up ahead!"
+  },
+  {
+   "id": "us_sniper_1",
+   "role": "us2",
+   "text": "Sniper in the trees!"
+  },
+  {
+   "id": "us_grenade_1",
+   "role": "us",
+   "text": "Grenade!"
+  },
+  {
+   "id": "us_mandown_1",
+   "role": "us2",
+   "text": "Man down!"
+  },
+  {
+   "id": "us_corpsman_1",
+   "role": "us",
+   "text": "Corpsman!"
+  },
+  {
+   "id": "us_corpsman_2",
+   "role": "us2",
+   "text": "Corpsman up!"
+  },
+  {
+   "id": "us_fireinhole_1",
+   "role": "us",
+   "text": "Fire in the hole!"
+  },
+  {
+   "id": "us_flame_1",
+   "role": "us2",
+   "text": "Burn 'em out!"
+  },
+  {
+   "id": "us_bazooka_1",
+   "role": "us",
+   "text": "Bazooka! Clear the backblast!"
+  },
+  {
+   "id": "us_reload_1",
+   "role": "us2",
+   "text": "Reloading!"
+  },
+  {
+   "id": "us_ammo_1",
+   "role": "us",
+   "text": "We're low on ammo!"
+  },
+  {
+   "id": "us_panic_1",
+   "role": "us2",
+   "text": "Get back! Get back!"
+  },
+  {
+   "id": "us_rally_1",
+   "role": "us",
+   "text": "Pull yourselves together, Marines!"
+  },
+  {
+   "id": "us_tank_1",
+   "role": "us2",
+   "text": "Enemy tank!"
+  },
+  {
+   "id": "us_ourtank_1",
+   "role": "us",
+   "text": "Tank moving up."
+  },
+  {
+   "id": "us_beach_1",
+   "role": "us2",
+   "text": "Hit the beach!"
+  },
+  {
+   "id": "us_ramp_1",
+   "role": "us",
+   "text": "Ramp's going down! Go! Go!"
+  },
+  {
+   "id": "us_wade_1",
+   "role": "us2",
+   "text": "Keep moving! Keep wading!"
+  },
+  {
+   "id": "us_seawall_1",
+   "role": "us",
+   "text": "Get to the seawall!"
+  },
+  {
+   "id": "us_cleared_1",
+   "role": "us2",
+   "text": "Position cleared."
+  },
+  {
+   "id": "us_kill_1",
+   "role": "us",
+   "text": "Got him!"
+  },
+  {
+   "id": "us_bunker_down_1",
+   "role": "us2",
+   "text": "Bunker's knocked out!"
+  },
+  {
+   "id": "us_lvt_hit_1",
+   "role": "us",
+   "text": "Amtrac's hit! Get out!"
+  },
+  {
+   "id": "us_banzai_1",
+   "role": "us2",
+   "text": "Here they come! Banzai charge!"
+  },
+  {
+   "id": "us_flare_1",
+   "role": "us",
+   "text": "Flare up!"
+  },
+  {
+   "id": "us_selected_1",
+   "role": "us2",
+   "text": "Sir?"
+  },
+  {
+   "id": "us_selected_2",
+   "role": "us",
+   "text": "Ready."
+  },
+  {
+   "id": "us_selected_3",
+   "role": "us2",
+   "text": "Awaiting orders."
+  },
+  {
+   "id": "us_victory_1",
+   "role": "us",
+   "text": "We've got 'em on the run!"
+  },
+  {
+   "id": "us_retreat_1",
+   "role": "us2",
+   "text": "Fall back!"
+  },
+  {
+   "id": "us_demo_1",
+   "role": "us",
+   "text": "Charges set!"
+  },
+  {
+   "id": "us_spotted_1",
+   "role": "us2",
+   "text": "Enemy spotted!"
+  },
+  {
+   "id": "rad_issue_doubt",
+   "role": "radio",
+   "text": "Receiving heavy fire all along the beach. Unable to land. Issue in doubt."
+  },
+  {
+   "id": "rad_ngf_request",
+   "role": "radio",
+   "text": "Fire mission, over."
+  },
+  {
+   "id": "rad_ngf_confirm",
+   "role": "radio",
+   "text": "Fire mission confirmed. Shot, over."
+  },
+  {
+   "id": "rad_ngf_splash",
+   "role": "radio",
+   "text": "Splash, over."
+  },
+  {
+   "id": "rad_air_inbound",
+   "role": "radio",
+   "text": "Hellcats inbound. Keep your heads down."
+  },
+  {
+   "id": "rad_reef",
+   "role": "radio",
+   "text": "Boats are grounding on the reef! The tide is too low!"
+  },
+  {
+   "id": "rad_tanks_landing",
+   "role": "radio",
+   "text": "Shermans coming ashore."
+  },
+  {
+   "id": "rad_reinforce",
+   "role": "radio",
+   "text": "Reinforcements on the way in."
+  },
+  {
+   "id": "rad_casualties",
+   "role": "radio",
+   "text": "We need more men. Casualties are heavy."
+  },
+  {
+   "id": "rad_objective",
+   "role": "radio",
+   "text": "Objective secured."
+  },
+  {
+   "id": "rad_lost_objective",
+   "role": "radio",
+   "text": "We've lost the position!"
+  },
+  {
+   "id": "rad_mission_win",
+   "role": "radio",
+   "text": "Casualties many. Percentage dead not known. Combat efficiency: we are winning."
+  },
+  {
+   "id": "rad_mission_lose",
+   "role": "radio",
+   "text": "We cannot hold. Withdraw to the boats."
+  },
+  {
+   "id": "rad_no_radio",
+   "role": "radio",
+   "text": "Radio's waterlogged. Can't raise the ships."
+  },
+  {
+   "id": "rad_counterattack",
+   "role": "radio",
+   "text": "Enemy massing for a counterattack."
+  },
+  {
+   "id": "rad_dawn",
+   "role": "radio",
+   "text": "Dawn is breaking."
+  },
+  {
+   "id": "rad_wave",
+   "role": "radio",
+   "text": "Next wave is crossing the line of departure."
+  },
+  {
+   "id": "rad_no_support",
+   "role": "radio",
+   "text": "No fire support available."
+  },
+  {
+   "id": "jp_enemy",
+   "role": "jp",
+   "text": "敵だ!",
+   "romaji": "Teki da!"
+  },
+  {
+   "id": "jp_fire",
+   "role": "jp",
+   "text": "撃て!",
+   "romaji": "Ute!"
+  },
+  {
+   "id": "jp_banzai",
+   "role": "jp",
+   "text": "天皇陛下万歳!",
+   "romaji": "Tennō heika banzai!"
+  },
+  {
+   "id": "jp_charge",
+   "role": "jp",
+   "text": "突撃!",
+   "romaji": "Totsugeki!"
+  },
+  {
+   "id": "jp_grenade",
+   "role": "jp",
+   "text": "手榴弾!",
+   "romaji": "Shuryūdan!"
+  },
+  {
+   "id": "jp_tank",
+   "role": "jp",
+   "text": "戦車だ!",
+   "romaji": "Sensha da!"
+  },
+  {
+   "id": "jp_takecover",
+   "role": "jp",
+   "text": "伏せろ!",
+   "romaji": "Fusero!"
+  },
+  {
+   "id": "jp_hold",
+   "role": "jp",
+   "text": "ここを守れ!",
+   "romaji": "Koko o mamore!"
+  },
+  {
+   "id": "jp_forward",
+   "role": "jp",
+   "text": "進め!",
+   "romaji": "Susume!"
+  },
+  {
+   "id": "jp_medic",
+   "role": "jp",
+   "text": "衛生兵!",
+   "romaji": "Eiseihei!"
+  },
+  {
+   "id": "nar_campaign",
+   "role": "narrator",
+   "text": "November 1943. Tarawa Atoll, Gilbert Islands. The Second Marine Division will storm Betio, a fortified island barely three kilometres long, held by nearly five thousand Japanese troops. Admiral Shibasaki boasts that a million men could not take it in a hundred years."
+  },
+  {
+   "id": "nar_s1",
+   "role": "narrator",
+   "text": "Day one. The tide is low. Amtracs will carry the first three waves over the reef. Higgins boats behind them may ground on the coral. Get your Marines to the seawall, and silence the guns on Red Beach."
+  },
+  {
+   "id": "nar_s2",
+   "role": "narrator",
+   "text": "Day two. Major Ryan's scratch battalion clings to the western tip of Betio. Clear Green Beach of pillboxes, so the First Battalion, Sixth Marines can land."
+  },
+  {
+   "id": "nar_s3",
+   "role": "narrator",
+   "text": "Day three. A massive sand-covered bombproof shelter blocks the advance east of Red Beach Three. Lieutenant Bonnyman's engineers must take it with flamethrowers and demolitions."
+  },
+  {
+   "id": "nar_s4",
+   "role": "narrator",
+   "text": "Night of day three. The last Japanese defenders are gathering in the east of the island. Hold the line until dawn. Expect them to charge."
+  },
+  {
+   "id": "nar_s5",
+   "role": "narrator",
+   "text": "November twenty seventh. Buariki, the far end of the atoll. The last Japanese garrison has retreated into the jungle. Hunt them down."
+  },
+  {
+   "id": "nar_victory",
+   "role": "narrator",
+   "text": "Victory. The cost was terrible, but the lessons learned at Tarawa would save thousands of lives in the battles to come."
+  },
+  {
+   "id": "nar_defeat",
+   "role": "narrator",
+   "text": "The assault has failed. The Marines are thrown back into the sea."
+  }
+ ]
+}

@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0b1a24">
+<title>Tarawa 1943</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%226%22 fill=%22%230b1a24%22/%3E%3Cpath d=%22M5 26 L16 5 L27 26 Z%22 fill=%22none%22 stroke=%22%2340c0b0%22 stroke-width=%223%22/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600&family=Special+Elite&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="stage">
+  <canvas id="gpu"></canvas>
+  <canvas id="overlay"></canvas>
+</div>
+
+<!-- Title -->
+<section id="title" class="screen">
+  <div class="title-card">
+    <div class="kicker">Operation GALVANIC · Gilbert Islands · November 1943</div>
+    <h1>TARAWA</h1>
+    <div class="sub">Seventy-six hours on Betio</div>
+    <p class="lede">A real-time tactical game of the 2nd Marine Division's assault on the most heavily defended atoll in the Pacific. Lead small teams of Marines across the reef, pin down machine-gun nests, and burn out pillboxes — one team at a time.</p>
+    <button id="btn-start" class="big">Begin campaign</button>
+    <div style="margin-top:12px"><button id="btn-credits">Credits &amp; sources</button></div>
+    <div id="gpu-error" class="error hidden"></div>
+    <div class="title-foot">Mouse &amp; keyboard or touch (iPad). Requires a browser with WebGPU. Sound recommended.</div>
+  </div>
+</section>
+
+<!-- Atoll / campaign map -->
+<section id="atoll" class="screen hidden">
+  <div class="atoll-head">
+    <h2>Tarawa Atoll</h2>
+    <div class="hint">Pinch or scroll to zoom · drag to pan · choose a battle</div>
+  </div>
+  <div id="atoll-markers"></div>
+  <div id="battle-list" class="panel">
+    <h3>Battles</h3>
+    <div id="battles"></div>
+  </div>
+</section>
+
+<!-- Briefing -->
+<section id="briefing" class="screen hidden">
+  <div class="panel brief">
+    <div class="kicker" id="brief-sub"></div>
+    <h2 id="brief-title"></h2>
+    <div id="brief-text"></div>
+    <div id="brief-oob"></div>
+    <div class="row">
+      <button id="btn-brief-back">Back</button>
+      <button id="btn-narrate" title="Play / stop narration">🔊 Narration</button>
+      <button id="btn-brief-go" class="primary">Begin battle</button>
+    </div>
+  </div>
+</section>
+
+<!-- Battle HUD -->
+<section id="hud" class="hidden">
+  <div id="topbar">
+    <div class="tb-left">
+      <button id="btn-menu" class="icon" title="Menu (Esc)">☰</button>
+      <div class="sc-name" id="hud-name"></div>
+      <div class="clock" id="hud-clock">0000</div>
+    </div>
+    <div class="tb-mid" id="hud-vls"></div>
+    <div class="tb-right">
+      <div class="support">
+        <button id="sup-naval" title="Naval gunfire (needs a radio)">⚓ NGF <b>0</b></button>
+        <button id="sup-air" title="Air strike (needs a radio)">✈ Air <b>0</b></button>
+        <button id="sup-star" title="Star shell">✸ Star <b>0</b></button>
+      </div>
+      <div class="speed">
+        <button data-speed="0" title="Pause (Space)">❚❚</button>
+        <button data-speed="1" class="on">1×</button>
+        <button data-speed="2">2×</button>
+        <button data-speed="4">4×</button>
+      </div>
+    </div>
+  </div>
+  <div id="log"></div>
+  <div id="orderbar">
+    <button data-order="move" title="Move (M)">Move</button>
+    <button data-order="fast" title="Move fast / run (R)">Fast</button>
+    <button data-order="sneak" title="Sneak / crawl (C)">Sneak</button>
+    <button data-order="fire" title="Fire at target or area (F)">Fire</button>
+    <button data-order="assault" title="Close assault on a fortification (G)">Assault</button>
+    <button data-order="smoke" title="Smoke (Q)">Smoke</button>
+    <button data-order="defend" title="Defend (E)">Defend</button>
+    <button data-order="ambush" title="Ambush / hold fire (Z)">Ambush</button>
+    <button data-order="unload" title="Unload (U)">Unload</button>
+    <button data-order="stop" title="Stop (X)">Stop</button>
+  </div>
+  <div id="details" class="panel hidden"></div>
+  <div id="units"></div>
+  <canvas id="minimap"></canvas>
+  <div id="radial" class="hidden"></div>
+  <div id="pausemenu" class="panel hidden">
+    <h3>Paused</h3>
+    <button id="pm-resume" class="primary">Resume</button>
+    <button id="pm-help">How to play</button>
+    <button id="pm-cease">Cease fire (end battle)</button>
+    <button id="pm-restart">Restart battle</button>
+    <button id="pm-quit">Quit to atoll map</button>
+    <label>Volume <input type="range" id="pm-vol" min="0" max="1" step="0.05" value="0.8"></label>
+    <label>Quality <select id="pm-q"><option value="1">Battery</option><option value="1.5" selected>Balanced</option><option value="2">Sharp</option></select></label>
+  </div>
+  <div id="help" class="panel hidden">
+    <h3>How to play</h3>
+    <div class="cols">
+      <div>
+        <h4>Desktop</h4>
+        <ul>
+          <li><b>Left-click</b> a Marine to select his team · <b>drag</b> a box to select several · <b>Shift</b> adds</li>
+          <li><b>Right-click</b> ground or an enemy for the order menu · <b>right-drag</b>, <b>WASD</b> or <b>arrows</b> pan · <b>wheel</b> zooms</li>
+          <li>Hotkeys: <b>M</b> move, <b>R</b> fast, <b>C</b> sneak, <b>F</b> fire, <b>G</b> assault, <b>Q</b> smoke, <b>E</b> defend, <b>Z</b> ambush, <b>U</b> unload, <b>X</b> stop · <b>Space</b> pause · <b>Tab</b> next team</li>
+        </ul>
+      </div>
+      <div>
+        <h4>iPad / touch</h4>
+        <ul>
+          <li><b>Tap</b> a Marine or a unit card to select · <b>drag</b> to pan · <b>pinch</b> to zoom</li>
+          <li><b>Tap ground or an enemy</b> with a team selected for the order menu</li>
+          <li><b>Long-press</b> another team to add it to the selection</li>
+          <li>Or pick an order on the bar, then tap the target</li>
+        </ul>
+      </div>
+    </div>
+    <h4>Tactics</h4>
+    <ul>
+      <li>Fire <b>suppresses</b>. Suppressed men slow down, pinned men stop and hug the ground, cowering men do nothing. Bring morale back by getting out of the line of fire.</li>
+      <li>Cover is real: the seawall, craters, trenches and wrecked amtracs stop bullets. Men behind a wall must rise to fire over it.</li>
+      <li>Pillboxes and bunkers can only see through their embrasure. Suppress the embrasure from the front, work engineers round the blind side, then <b>Assault</b> — flamethrower ("blowtorch") and satchel charge ("corkscrew").</li>
+      <li>Higgins boats ground on the reef at low tide. Amtracs cross it but can't climb the seawall.</li>
+      <li>Naval gunfire and air strikes need a team with a working radio ashore. Keep your command post alive.</li>
+    </ul>
+    <button id="help-close" class="primary">Close</button>
+  </div>
+</section>
+
+<!-- Debrief -->
+<section id="debrief" class="screen hidden">
+  <div class="panel brief">
+    <div class="kicker" id="db-sub"></div>
+    <h2 id="db-grade"></h2>
+    <div id="db-body"></div>
+    <div class="row">
+      <button id="db-map">Atoll map</button>
+      <button id="db-retry">Replay</button>
+      <button id="db-next" class="primary">Next battle</button>
+    </div>
+  </div>
+</section>
+
+<section id="credits" class="screen hidden">
+  <div class="panel brief credits">
+    <h2>Credits</h2>
+    <p>Design, code and procedural art: generated for this project. Rendering: WebGPU, no external engine.</p>
+    <div id="credits-body">Loading…</div>
+    <div class="row"><button id="credits-close" class="primary">Close</button></div>
+  </div>
+</section>
+<div id="loading" class="hidden"><div class="spinner"></div><div id="loading-text">Loading…</div></div>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
