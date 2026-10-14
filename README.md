@@ -13,6 +13,10 @@ There is no build step and nothing to install: plain ES modules plus WGSL shader
 
 On iPad you need **Safari on iPadOS 26 or later** (which has WebGPU). The page must be served over **HTTPS**: `--https` generates a self-signed certificate, and Safari asks you to accept it once. Any static HTTPS host, such as GitHub Pages, also works.
 
+### GitHub Pages
+
+`.github/workflows/pages.yml` deploys the game on every push to `main` (or on demand from the Actions tab). One-time setup in the repository: **Settings → Pages → Build and deployment → Source: GitHub Actions**. The site is published at `https://<user>.github.io/<repo>/`; Pages serves HTTPS, so it works on iPad too.
+
 ## The campaign
 
 The **atoll map** is a zoomable strategic view of all of Tarawa: Betio, Bairiki, Eita, Bonriki, the eastern chain, Buariki and Naa. Historical notes are attached to the islets.
