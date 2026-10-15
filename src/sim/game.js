@@ -61,8 +61,30 @@ export class Game {
     const cd = opts.cd ?? 6;
     if ((this.voiceCD[key] || -99) + cd > this.time) return false;
     this.voiceCD[key] = this.time;
-    this.fx.push({ t: 'voice', id, x, y, side, radio: !!opts.radio, prio: opts.prio || 1 });
+    let tone = opts.tone;
+    if (tone === undefined && x !== undefined) {
+      // the speaker is the soldier standing at (x, y); their team's situation sets the delivery
+      let sp = null;
+      this.hash.query(x, y, 1.5, (o) => { if (!sp && o.side === side && this.alive(o)) sp = o; });
+      // embarked men are not in the soldier hash: speak with the situation of the boat or amtrac they ride in
+      if (!sp) this.vhash.query(x, y, 4, (v) => { if (!sp && v.team && v.team.side === side) sp = v; });
+      tone = sp ? this.teamTone(sp.team) : null;
+    }
+    this.fx.push({ t: 'voice', id, x, y, side, radio: !!opts.radio, prio: opts.prio || 1, tone });
     return true;
+  }
+  // voice delivery for a team: urgent under fire, cautious when sneaking or lying in ambush, otherwise calm
+  teamTone(team) {
+    if (!team) return null;
+    let n = 0, sup = 0, down = 0;
+    for (const s of team.soldiers) if (this.alive(s)) {
+      n++; sup += s.sup;
+      if (s.status === 'pinned' || s.status === 'cowering' || s.status === 'panicked') down++;
+    }
+    if (!n) return null;
+    if (sup / n >= 30 || down * 2 >= n || (team.ai && team.ai.banzai)) return 'urgent';
+    const k = team.order && team.order.kind;
+    return k === 'sneak' || k === 'ambush' ? 'cautious' : 'calm';
   }
   radio(id, text) { this.fx.push({ t: 'voice', id, radio: true, prio: 3 }); if (text) this.msg('📻 ' + text, 'radio'); }
   pickName(side) {

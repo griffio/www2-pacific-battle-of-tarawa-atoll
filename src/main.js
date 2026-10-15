@@ -237,7 +237,7 @@ class App {
     if (this.game && team && this.performanceAck(0.8)) {
       const l = this.game.leader(team) || team.soldiers[0];
       const v = team.vehicle || team.embarked;
-      this.audio.voice(pick(VOICE_ACK.select), v ? v.x : l.x, v ? v.y : l.y, { prio: 1 });
+      this.audio.voice(pick(VOICE_ACK.select), v ? v.x : l.x, v ? v.y : l.y, { prio: 1, tone: this.game.teamTone(team) });
     }
     this.hud.update(true);
   }
@@ -271,7 +271,7 @@ class App {
       const t0 = teams[0];
       const v = t0.vehicle || t0.embarked;
       const l = g.leader(t0) || t0.soldiers[0];
-      if (this.performanceAck(0.6)) this.audio.voice(pick(VOICE_ACK[kind] || ['us_ack_1']), v ? v.x : l.x, v ? v.y : l.y, { prio: 2 });
+      if (this.performanceAck(0.6)) this.audio.voice(pick(VOICE_ACK[kind] || ['us_ack_1']), v ? v.x : l.x, v ? v.y : l.y, { prio: 2, tone: g.teamTone(t0) });
     }
     this.hud.update(true);
   }
@@ -584,7 +584,7 @@ class App {
       const [cx, cy] = this.game.teamCenter(t);
       if (cx >= ax && cx <= bx && cy >= ay && cy <= by) { this.selection.add(t); t.selected = true; n++; }
     }
-    if (n) this.audio.voice(pick(VOICE_ACK.select), (ax + bx) / 2, (ay + by) / 2, {});
+    if (n) this.audio.voice(pick(VOICE_ACK.select), (ax + bx) / 2, (ay + by) / 2, { tone: this.game.teamTone(this.selection.values().next().value) });
     this.hud.update(true);
   }
   key(e, down) {
@@ -723,7 +723,7 @@ class App {
     for (const e of g.fx) {
       switch (e.t) {
         case 'sound': this.audio.play(e.id, e.x, e.y, e.vol, e.rate); break;
-        case 'voice': this.audio.voice(e.id, e.x, e.y, { radio: e.radio, prio: e.prio }); break;
+        case 'voice': this.audio.voice(e.id, e.x, e.y, { radio: e.radio, prio: e.prio, tone: e.tone }); break;
         case 'whiz': this.audio.whiz(e.x, e.y, e.cls); break;
         case 'impact': fx.handle(e, g); if (!e.hard) this.audio.impact(e.x, e.y, e.water); break;
         default: fx.handle(e, g);

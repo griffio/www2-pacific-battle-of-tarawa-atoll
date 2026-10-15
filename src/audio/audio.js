@@ -15,6 +15,8 @@ const PROFILE = {
   splash_big: { rev: 0.3, thump: 0.45, shock: 0.3 }, plane_flyby: { rev: 0.15 },
 };
 const SPEED_OF_SOUND = 343;
+// voice takes to try, in order, when a line was not recorded in the requested tone
+const TONE_FALLBACK = { urgent: ['urgent', 'calm', 'cautious'], cautious: ['cautious', 'calm', 'urgent'], calm: ['calm', 'cautious', 'urgent'] };
 
 export class Audio {
   constructor() {
@@ -111,7 +113,22 @@ export class Audio {
     }));
     this.lines = {};
     for (const l of this.voiceManifest.lines || []) this.lines[l.id] = l;
-    await Promise.all((this.voiceManifest.lines || []).map(async (l) => { const b = await load(`assets/voice/${l.id}.mp3`); if (b) this.voices[l.id] = b; }));
+    // a line with takes has one file per delivery (<id>.<tone>.mp3); otherwise a single <id>.mp3 stored under tone ''
+    await Promise.all((this.voiceManifest.lines || []).map(async (l) => {
+      const tones = l.takes ? l.takes.map(t => t.tone) : [''];
+      const bs = await Promise.all(tones.map(t => load(`assets/voice/${l.id}${t ? '.' + t : ''}.mp3`)));
+      const takes = {};
+      tones.forEach((t, i) => { if (bs[i]) takes[t] = bs[i]; });
+      if (Object.keys(takes).length) this.voices[l.id] = takes;
+    }));
+  }
+  // pick the take that fits the requested tone (urgent | cautious | calm), else the nearest delivery; no tone = any take
+  take(id, tone) {
+    const t = this.voices[id];
+    if (!t) return null;
+    if (tone) for (const k of TONE_FALLBACK[tone] || [tone]) if (t[k]) return t[k];
+    const all = Object.values(t);
+    return all[(Math.random() * all.length) | 0];
   }
 
   // ------------------------------------------------ procedural fallbacks
@@ -252,11 +269,11 @@ export class Audio {
       if (radio || prio >= 2) { if (this.voiceQueue.length < 4) this.voiceQueue.push({ id, x, y, opts, at: now }); }
       return;
     }
-    this.playVoice(id, x, y, radio);
+    this.playVoice(id, x, y, radio, opts.tone);
   }
-  playVoice(id, x, y, radio) {
+  playVoice(id, x, y, radio, tone) {
     const c = this.ctx, now = c.currentTime;
-    const b = this.voices[id];
+    const b = this.take(id, tone);
     let dur = 1.2;
     if (radio) {
       const sq = this.buffers.radio_squelch;
@@ -287,7 +304,7 @@ export class Audio {
   }
   narrate(id) {
     if (!this.ctx) return null;
-    const b = this.voices[id];
+    const b = this.take(id);
     if (!b) return null;
     this.stopNarration();
     const src = this.ctx.createBufferSource(); src.buffer = b;
@@ -305,7 +322,7 @@ export class Audio {
     this.voiceQueue = this.voiceQueue.filter(v => now - v.at < (v.opts.radio ? 12 : 2.5));
     if (this.voiceQueue.length && this.voiceBusyUntil < now) {
       const v = this.voiceQueue.shift();
-      this.playVoice(v.id, v.x, v.y, v.opts.radio);
+      this.playVoice(v.id, v.x, v.y, v.opts.radio, v.opts.tone);
     }
   }
   // rounds passing a target near the camera: supersonic cracks, machine-gun near-miss bursts, ricochets

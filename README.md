@@ -68,7 +68,7 @@ The **atoll map** is a zoomable strategic view of all of Tarawa: Betio, Bairiki,
 ## Audio
 
 - **Sound effects** come from CC0, CC-BY and CC-BY-SA sources (OpenGameArt, Wikimedia Commons, Kenney). See `assets/sfx/CREDITS.md`; the credits are also shown in-game.
-- **Voices** (orders, warnings, radio traffic, Japanese shouts, narration) were generated locally with the open-weights **Kokoro-82M** TTS model (Apache-2.0). Radio lines get a band-pass "radio" filter at runtime. To regenerate them, run `tools/gen_voices.py`; it lists its requirements at the top.
+- **Voices** (orders, warnings, radio traffic, Japanese shouts, narration) were generated with the **ElevenLabs** `eleven_v3` model. Most combat lines have urgent, cautious and calm takes, and the game picks the one that suits the speaker's situation: urgent under fire, cautious when sneaking or in ambush, and calm otherwise. Radio lines get a band-pass "radio" filter at runtime. To regenerate them, set `ELEVENLABS_API_KEY` and run `tools/gen_voices.py`.
 
 ## Code map
 

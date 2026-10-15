@@ -1,465 +1,1075 @@
 {
- "_note": "Game loads assets/voice/<id>.mp3 when present; roles: us/us2 = two distinct US male voices, radio = male voice (radio filter applied at runtime), jp = Japanese male voice, narrator = calm documentary voice.",
+ "_note": "Voice lines generated with ElevenLabs eleven_v3 by tools/gen_voices.py. A line with `takes` has one file per take, assets/voice/<id>.<tone>.mp3 (tone: urgent | cautious | calm); the game picks the take that matches the speaker's situation. Lines without takes are assets/voice/<id>.mp3. `say` is the prompt sent to the TTS model (bracketed audio tags set the delivery); `text` is the plain line. Roles: us/us2 = two US Marine NCO voices, radio = officer on the net (radio filter applied at runtime), jp = Japanese soldier, narrator = documentary voice.",
  "lines": [
   {
    "id": "us_move_1",
    "role": "us",
-   "text": "Move out!"
+   "text": "Move out!",
+   "takes": [
+    {
+     "tone": "calm",
+     "say": "[firm, commanding] Move out."
+    },
+    {
+     "tone": "urgent",
+     "say": "[shouting] Move out! Move!"
+    },
+    {
+     "tone": "cautious",
+     "say": "[low voice, tense] Move out... quietly."
+    }
+   ]
   },
   {
    "id": "us_move_2",
    "role": "us2",
-   "text": "Let's go, let's go!"
+   "text": "Let's go, let's go!",
+   "takes": [
+    {
+     "tone": "urgent",
+     "say": "[shouting] Let's go, let's go!"
+    },
+    {
+     "tone": "calm",
+     "say": "[firm, commanding] Let's go. Let's go."
+    }
+   ]
   },
   {
    "id": "us_move_3",
    "role": "us",
-   "text": "On the move."
+   "text": "On the move.",
+   "takes": [
+    {
+     "tone": "calm",
+     "say": "[steady, confident] On the move."
+    },
+    {
+     "tone": "cautious",
+     "say": "[low voice, tense] On the move."
+    }
+   ]
   },
   {
    "id": "us_fast_1",
    "role": "us2",
-   "text": "Double time! Move it!"
+   "text": "Double time! Move it!",
+   "takes": [
+    {
+     "tone": "urgent",
+     "say": "[shouting] Double time! Move it!"
+    },
+    {
+     "tone": "calm",
+     "say": "[commanding, forceful] Double time. Move it."
+    }
+   ]
   },
   {
    "id": "us_fast_2",
    "role": "us",
-   "text": "Run for it!"
+   "text": "Run for it!",
+   "takes": [
+    {
+     "tone": "urgent",
+     "say": "[shouting, urgent] Run for it!"
+    }
+   ]
   },
   {
    "id": "us_sneak_1",
    "role": "us2",
-   "text": "Keep your heads down. Crawl."
+   "text": "Keep your heads down. Crawl.",
+   "takes": [
+    {
+     "tone": "cautious",
+     "say": "[whispering] Keep your heads down... crawl."
+    },
+    {
+     "tone": "calm",
+     "say": "[low, firm] Keep your heads down. Crawl."
+    }
+   ]
   },
   {
    "id": "us_sneak_2",
    "role": "us",
-   "text": "Stay low, stay low."
+   "text": "Stay low, stay low.",
+   "takes": [
+    {
+     "tone": "cautious",
+     "say": "[whispering] Stay low... stay low."
+    },
+    {
+     "tone": "calm",
+     "say": "[low, firm] Stay low. Stay low."
+    }
+   ]
   },
   {
    "id": "us_fire_1",
    "role": "us2",
-   "text": "Open fire!"
+   "text": "Open fire!",
+   "takes": [
+    {
+     "tone": "urgent",
+     "say": "[shouting] Open fire!"
+    },
+    {
+     "tone": "calm",
+     "say": "[commanding, forceful] Open fire!"
+    }
+   ]
   },
   {
    "id": "us_fire_2",
    "role": "us",
-   "text": "Pour it on 'em!"
+   "text": "Pour it on 'em!",
+   "takes": [
+    {
+     "tone": "urgent",
+     "say": "[shouting, aggressive] Pour it on 'em!"
+    },
+    {
+     "tone": "calm",
+     "say": "[commanding, steady] Pour it on 'em."
+    }
+   ]
   },
   {
    "id": "us_fire_3",
    "role": "us2",
-   "text": "Target spotted. Firing!"
+   "text": "Target spotted. Firing!",
+   "takes": [
+    {
+     "tone": "urgent",
+     "say": "[shouting] Target spotted! Firing!"
+    },
+    {
+     "tone": "calm",
+     "say": "[steady, commanding] Target spotted. Firing."
+    },
+    {
+     "tone": "cautious",
+     "say": "[low voice, tense] Target spotted... firing."
+    }
+   ]
   },
   {
    "id": "us_defend_1",
    "role": "us",
-   "text": "Dig in here."
+   "text": "Dig in here.",
+   "takes": [
+    {
+     "tone": "calm",
+     "say": "[firm, commanding] Dig in here."
+    },
+    {
+     "tone": "urgent",
+     "say": "[shouting] Dig in! Right here!"
+    }
+   ]
   },
   {
    "id": "us_ambush_1",
    "role": "us2",
-   "text": "Hold your fire until I say."
+   "text": "Hold your fire until I say.",
+   "takes": [
+    {
+     "tone": "cautious",
+     "say": "[whispering, firm] Hold your fire... until I say."
+    },
+    {
+     "tone": "calm",
+     "say": "[low, commanding] Hold your fire until I say."
+    }
+   ]
   },
   {
    "id": "us_smoke_1",
    "role": "us",
-   "text": "Popping smoke!"
+   "text": "Popping smoke!",
+   "takes": [
+    {
+     "tone": "urgent",
+     "say": "[shouting] Popping smoke!"
+    },
+    {
+     "tone": "calm",
+     "say": "[steady, commanding] Popping smoke."
+    }
+   ]
   },
   {
    "id": "us_stop_1",
    "role": "us2",
-   "text": "Hold up!"
+   "text": "Hold up!",
+   "takes": [
+    {
+     "tone": "cautious",
+     "say": "[low voice, tense] Hold up."
+    },
+    {
+     "tone": "urgent",
+     "say": "[shouting] Hold up!"
+    },
+    {
+     "tone": "calm",
+     "say": "[firm, commanding] Hold up."
+    }
+   ]
   },
   {
    "id": "us_ack_1",
    "role": "us",
-   "text": "Roger."
+   "text": "Roger.",
+   "takes": [
+    {
+     "tone": "calm",
+     "say": "[crisp, confident] Roger."
+    },
+    {
+     "tone": "urgent",
+     "say": "[shouting] Roger!"
+    }
+   ]
   },
   {
    "id": "us_ack_2",
    "role": "us2",
-   "text": "Aye aye, sir."
+   "text": "Aye aye, sir.",
+   "takes": [
+    {
+     "tone": "calm",
+     "say": "[crisp, confident] Aye aye, sir."
+    },
+    {
+     "tone": "urgent",
+     "say": "[shouting] Aye aye, sir!"
+    }
+   ]
   },
   {
    "id": "us_ack_3",
    "role": "us",
-   "text": "Understood."
+   "text": "Understood.",
+   "takes": [
+    {
+     "tone": "calm",
+     "say": "[crisp, confident] Understood."
+    },
+    {
+     "tone": "cautious",
+     "say": "[low voice, tense] Understood."
+    }
+   ]
   },
   {
    "id": "us_pinned_1",
    "role": "us2",
-   "text": "We're pinned down!"
+   "text": "We're pinned down!",
+   "takes": [
+    {
+     "tone": "urgent",
+     "say": "[shouting, desperate] We're pinned down!"
+    },
+    {
+     "tone": "cautious",
+     "say": "[tense, breathless] We're pinned down..."
+    }
+   ]
   },
   {
    "id": "us_pinned_2",
    "role": "us",
-   "text": "Can't move! Too much fire!"
+   "text": "Can't move! Too much fire!",
+   "takes": [
+    {
+     "tone": "urgent",
+     "say": "[shouting, desperate] Can't move! Too much fire!"
+    }
+   ]
   },
   {
    "id": "us_takingfire_1",
    "role": "us2",
-   "text": "Taking fire!"
+   "text": "Taking fire!",
+   "takes": [
+    {
+     "tone": "urgent",
+     "say": "[shouting] Taking fire!"
+    },
+    {
+     "tone": "calm",
+     "say": "[steady, commanding] Taking fire. Get down."
+    }
+   ]
   },
   {
    "id": "us_takingfire_2",
    "role": "us",
-   "text": "Incoming!"
+   "text": "Incoming!",
+   "takes": [
+    {
+     "tone": "urgent",
+     "say": "[shouting, urgent] Incoming!"
+    }
+   ]
   },
   {
    "id": "us_mg_1",
    "role": "us2",
-   "text": "Machine gun!"
+   "text": "Machine gun!",
+   "takes": [
+    {
+     "tone": "urgent",
+     "say": "[shouting] Machine gun!"
+    },
+    {
+     "tone": "cautious",
+     "say": "[low voice, tense] Machine gun... dead ahead."
+    }
+   ]
   },
   {
    "id": "us_pillbox_1",
    "role": "us",
-   "text": "Pillbox up ahead!"
+   "text": "Pillbox up ahead!",
+   "takes": [
+    {
+     "tone": "cautious",
+     "say": "[low voice, tense] Pillbox up ahead."
+    },
+    {
+     "tone": "urgent",
+     "say": "[shouting] Pillbox up ahead!"
+    },
+    {
+     "tone": "calm",
+     "say": "[steady, commanding] Pillbox, up ahead."
+    }
+   ]
   },
   {
    "id": "us_sniper_1",
    "role": "us2",
-   "text": "Sniper in the trees!"
+   "text": "Sniper in the trees!",
+   "takes": [
+    {
+     "tone": "urgent",
+     "say": "[shouting] Sniper in the trees!"
+    },
+    {
+     "tone": "cautious",
+     "say": "[whispering, tense] Sniper... in the trees."
+    }
+   ]
   },
   {
    "id": "us_grenade_1",
    "role": "us",
-   "text": "Grenade!"
+   "text": "Grenade!",
+   "takes": [
+    {
+     "tone": "urgent",
+     "say": "[shouting, urgent] Grenade!"
+    }
+   ]
   },
   {
    "id": "us_mandown_1",
    "role": "us2",
-   "text": "Man down!"
+   "text": "Man down!",
+   "takes": [
+    {
+     "tone": "urgent",
+     "say": "[shouting, urgent] Man down!"
+    }
+   ]
   },
   {
    "id": "us_corpsman_1",
    "role": "us",
-   "text": "Corpsman!"
+   "text": "Corpsman!",
+   "takes": [
+    {
+     "tone": "urgent",
+     "say": "[shouting, desperate] Corpsman!"
+    }
+   ]
   },
   {
    "id": "us_corpsman_2",
    "role": "us2",
-   "text": "Corpsman up!"
+   "text": "Corpsman up!",
+   "takes": [
+    {
+     "tone": "urgent",
+     "say": "[shouting] Corpsman up!"
+    },
+    {
+     "tone": "calm",
+     "say": "[commanding, forceful] Corpsman up!"
+    }
+   ]
   },
   {
    "id": "us_fireinhole_1",
    "role": "us",
-   "text": "Fire in the hole!"
+   "text": "Fire in the hole!",
+   "takes": [
+    {
+     "tone": "urgent",
+     "say": "[shouting] Fire in the hole!"
+    },
+    {
+     "tone": "calm",
+     "say": "[commanding, forceful] Fire in the hole!"
+    }
+   ]
   },
   {
    "id": "us_flame_1",
    "role": "us2",
-   "text": "Burn 'em out!"
+   "text": "Burn 'em out!",
+   "takes": [
+    {
+     "tone": "urgent",
+     "say": "[shouting, aggressive] Burn 'em out!"
+    },
+    {
+     "tone": "calm",
+     "say": "[cold, commanding] Burn 'em out."
+    }
+   ]
   },
   {
    "id": "us_bazooka_1",
    "role": "us",
-   "text": "Bazooka! Clear the backblast!"
+   "text": "Bazooka! Clear the backblast!",
+   "takes": [
+    {
+     "tone": "urgent",
+     "say": "[shouting] Bazooka! Clear the backblast!"
+    },
+    {
+     "tone": "calm",
+     "say": "[commanding, steady] Bazooka. Clear the backblast."
+    }
+   ]
   },
   {
    "id": "us_reload_1",
    "role": "us2",
-   "text": "Reloading!"
+   "text": "Reloading!",
+   "takes": [
+    {
+     "tone": "urgent",
+     "say": "[shouting] Reloading!"
+    },
+    {
+     "tone": "calm",
+     "say": "[steady] Reloading."
+    }
+   ]
   },
   {
    "id": "us_ammo_1",
    "role": "us",
-   "text": "We're low on ammo!"
+   "text": "We're low on ammo!",
+   "takes": [
+    {
+     "tone": "urgent",
+     "say": "[shouting] We're low on ammo!"
+    },
+    {
+     "tone": "cautious",
+     "say": "[low voice, tense] We're low on ammo."
+    }
+   ]
   },
   {
    "id": "us_panic_1",
    "role": "us2",
-   "text": "Get back! Get back!"
+   "text": "Get back! Get back!",
+   "takes": [
+    {
+     "tone": "urgent",
+     "say": "[panicked, shouting] Get back! Get back!"
+    }
+   ]
   },
   {
    "id": "us_rally_1",
    "role": "us",
-   "text": "Pull yourselves together, Marines!"
+   "text": "Pull yourselves together, Marines!",
+   "takes": [
+    {
+     "tone": "urgent",
+     "say": "[shouting, commanding] Pull yourselves together, Marines!"
+    },
+    {
+     "tone": "calm",
+     "say": "[firm, commanding] Pull yourselves together, Marines."
+    }
+   ]
   },
   {
    "id": "us_tank_1",
    "role": "us2",
-   "text": "Enemy tank!"
+   "text": "Enemy tank!",
+   "takes": [
+    {
+     "tone": "urgent",
+     "say": "[shouting] Enemy tank!"
+    },
+    {
+     "tone": "cautious",
+     "say": "[low voice, tense] Enemy tank..."
+    }
+   ]
   },
   {
    "id": "us_ourtank_1",
    "role": "us",
-   "text": "Tank moving up."
+   "text": "Tank moving up.",
+   "takes": [
+    {
+     "tone": "calm",
+     "say": "[steady, confident] Tank moving up."
+    },
+    {
+     "tone": "urgent",
+     "say": "[shouting] Tank moving up!"
+    }
+   ]
   },
   {
    "id": "us_beach_1",
    "role": "us2",
-   "text": "Hit the beach!"
+   "text": "Hit the beach!",
+   "takes": [
+    {
+     "tone": "urgent",
+     "say": "[shouting, commanding] Hit the beach!"
+    }
+   ]
   },
   {
    "id": "us_ramp_1",
    "role": "us",
-   "text": "Ramp's going down! Go! Go!"
+   "text": "Ramp's going down! Go! Go!",
+   "takes": [
+    {
+     "tone": "urgent",
+     "say": "[shouting, commanding] Ramp's going down! Go! Go!"
+    }
+   ]
   },
   {
    "id": "us_wade_1",
    "role": "us2",
-   "text": "Keep moving! Keep wading!"
+   "text": "Keep moving! Keep wading!",
+   "takes": [
+    {
+     "tone": "urgent",
+     "say": "[shouting] Keep moving! Keep wading!"
+    },
+    {
+     "tone": "calm",
+     "say": "[firm, commanding] Keep moving. Keep wading."
+    }
+   ]
   },
   {
    "id": "us_seawall_1",
    "role": "us",
-   "text": "Get to the seawall!"
+   "text": "Get to the seawall!",
+   "takes": [
+    {
+     "tone": "urgent",
+     "say": "[shouting, commanding] Get to the seawall!"
+    }
+   ]
   },
   {
    "id": "us_cleared_1",
    "role": "us2",
-   "text": "Position cleared."
+   "text": "Position cleared.",
+   "takes": [
+    {
+     "tone": "calm",
+     "say": "[steady, confident] Position cleared."
+    },
+    {
+     "tone": "cautious",
+     "say": "[low voice, tense] Position cleared."
+    }
+   ]
   },
   {
    "id": "us_kill_1",
    "role": "us",
-   "text": "Got him!"
+   "text": "Got him!",
+   "takes": [
+    {
+     "tone": "urgent",
+     "say": "[shouting, fierce] Got him!"
+    },
+    {
+     "tone": "calm",
+     "say": "[cold, steady] Got him."
+    }
+   ]
   },
   {
    "id": "us_bunker_down_1",
    "role": "us2",
-   "text": "Bunker's knocked out!"
+   "text": "Bunker's knocked out!",
+   "takes": [
+    {
+     "tone": "urgent",
+     "say": "[shouting, triumphant] Bunker's knocked out!"
+    },
+    {
+     "tone": "calm",
+     "say": "[steady, confident] Bunker's knocked out."
+    }
+   ]
   },
   {
    "id": "us_lvt_hit_1",
    "role": "us",
-   "text": "Amtrac's hit! Get out!"
+   "text": "Amtrac's hit! Get out!",
+   "takes": [
+    {
+     "tone": "urgent",
+     "say": "[shouting, urgent] Amtrac's hit! Get out!"
+    }
+   ]
   },
   {
    "id": "us_banzai_1",
    "role": "us2",
-   "text": "Here they come! Banzai charge!"
+   "text": "Here they come! Banzai charge!",
+   "takes": [
+    {
+     "tone": "urgent",
+     "say": "[shouting, urgent] Here they come! Banzai charge!"
+    }
+   ]
   },
   {
    "id": "us_flare_1",
    "role": "us",
-   "text": "Flare up!"
+   "text": "Flare up!",
+   "takes": [
+    {
+     "tone": "urgent",
+     "say": "[shouting] Flare up!"
+    },
+    {
+     "tone": "cautious",
+     "say": "[low voice, tense] Flare up... freeze."
+    }
+   ]
   },
   {
    "id": "us_selected_1",
    "role": "us2",
-   "text": "Sir?"
+   "text": "Sir?",
+   "takes": [
+    {
+     "tone": "calm",
+     "say": "[attentive, crisp] Sir?"
+    },
+    {
+     "tone": "urgent",
+     "say": "[shouting, breathless] Sir!"
+    }
+   ]
   },
   {
    "id": "us_selected_2",
    "role": "us",
-   "text": "Ready."
+   "text": "Ready.",
+   "takes": [
+    {
+     "tone": "calm",
+     "say": "[crisp, confident] Ready."
+    },
+    {
+     "tone": "cautious",
+     "say": "[low voice, tense] Ready."
+    }
+   ]
   },
   {
    "id": "us_selected_3",
    "role": "us2",
-   "text": "Awaiting orders."
+   "text": "Awaiting orders.",
+   "takes": [
+    {
+     "tone": "calm",
+     "say": "[crisp, confident] Awaiting orders."
+    },
+    {
+     "tone": "cautious",
+     "say": "[low voice] Awaiting orders."
+    }
+   ]
   },
   {
    "id": "us_victory_1",
    "role": "us",
-   "text": "We've got 'em on the run!"
+   "text": "We've got 'em on the run!",
+   "takes": [
+    {
+     "tone": "urgent",
+     "say": "[shouting, triumphant] We've got 'em on the run!"
+    }
+   ]
   },
   {
    "id": "us_retreat_1",
    "role": "us2",
-   "text": "Fall back!"
+   "text": "Fall back!",
+   "takes": [
+    {
+     "tone": "urgent",
+     "say": "[shouting, urgent] Fall back!"
+    },
+    {
+     "tone": "calm",
+     "say": "[firm, commanding] Fall back. Fall back."
+    }
+   ]
   },
   {
    "id": "us_demo_1",
    "role": "us",
-   "text": "Charges set!"
+   "text": "Charges set!",
+   "takes": [
+    {
+     "tone": "urgent",
+     "say": "[shouting] Charges set!"
+    },
+    {
+     "tone": "cautious",
+     "say": "[low voice, tense] Charges set."
+    }
+   ]
   },
   {
    "id": "us_spotted_1",
    "role": "us2",
-   "text": "Enemy spotted!"
+   "text": "Enemy spotted!",
+   "takes": [
+    {
+     "tone": "urgent",
+     "say": "[shouting] Enemy spotted!"
+    },
+    {
+     "tone": "cautious",
+     "say": "[whispering, tense] Enemy spotted..."
+    }
+   ]
   },
   {
    "id": "rad_issue_doubt",
    "role": "radio",
-   "text": "Receiving heavy fire all along the beach. Unable to land. Issue in doubt."
+   "text": "Receiving heavy fire all along the beach. Unable to land. Issue in doubt.",
+   "say": "[urgent, strained] Receiving heavy fire all along the beach. Unable to land. Issue in doubt."
   },
   {
    "id": "rad_ngf_request",
    "role": "radio",
-   "text": "Fire mission, over."
+   "text": "Fire mission, over.",
+   "say": "[crisp, professional] Fire mission, over."
   },
   {
    "id": "rad_ngf_confirm",
    "role": "radio",
-   "text": "Fire mission confirmed. Shot, over."
+   "text": "Fire mission confirmed. Shot, over.",
+   "say": "[crisp, professional] Fire mission confirmed. Shot, over."
   },
   {
    "id": "rad_ngf_splash",
    "role": "radio",
-   "text": "Splash, over."
+   "text": "Splash, over.",
+   "say": "[crisp, professional] Splash, over."
   },
   {
    "id": "rad_air_inbound",
    "role": "radio",
-   "text": "Hellcats inbound. Keep your heads down."
+   "text": "Hellcats inbound. Keep your heads down.",
+   "say": "[calm, authoritative] Hellcats inbound. Keep your heads down."
   },
   {
    "id": "rad_reef",
    "role": "radio",
-   "text": "Boats are grounding on the reef! The tide is too low!"
+   "text": "Boats are grounding on the reef! The tide is too low!",
+   "say": "[urgent, shouting over noise] Boats are grounding on the reef! The tide is too low!"
   },
   {
    "id": "rad_tanks_landing",
    "role": "radio",
-   "text": "Shermans coming ashore."
+   "text": "Shermans coming ashore.",
+   "say": "[calm, authoritative] Shermans coming ashore."
   },
   {
    "id": "rad_reinforce",
    "role": "radio",
-   "text": "Reinforcements on the way in."
+   "text": "Reinforcements on the way in.",
+   "say": "[calm, authoritative] Reinforcements on the way in."
   },
   {
    "id": "rad_casualties",
    "role": "radio",
-   "text": "We need more men. Casualties are heavy."
+   "text": "We need more men. Casualties are heavy.",
+   "say": "[grim, urgent] We need more men. Casualties are heavy."
   },
   {
    "id": "rad_objective",
    "role": "radio",
-   "text": "Objective secured."
+   "text": "Objective secured.",
+   "say": "[calm, satisfied] Objective secured."
   },
   {
    "id": "rad_lost_objective",
    "role": "radio",
-   "text": "We've lost the position!"
+   "text": "We've lost the position!",
+   "say": "[urgent, strained] We've lost the position!"
   },
   {
    "id": "rad_mission_win",
    "role": "radio",
-   "text": "Casualties many. Percentage dead not known. Combat efficiency: we are winning."
+   "text": "Casualties many. Percentage dead not known. Combat efficiency: we are winning.",
+   "say": "[grim, steady] Casualties many. Percentage dead not known. Combat efficiency: we are winning."
   },
   {
    "id": "rad_mission_lose",
    "role": "radio",
-   "text": "We cannot hold. Withdraw to the boats."
+   "text": "We cannot hold. Withdraw to the boats.",
+   "say": "[grim, urgent] We cannot hold. Withdraw to the boats."
   },
   {
    "id": "rad_no_radio",
    "role": "radio",
-   "text": "Radio's waterlogged. Can't raise the ships."
+   "text": "Radio's waterlogged. Can't raise the ships.",
+   "say": "[frustrated] Radio's waterlogged. Can't raise the ships."
   },
   {
    "id": "rad_counterattack",
    "role": "radio",
-   "text": "Enemy massing for a counterattack."
+   "text": "Enemy massing for a counterattack.",
+   "say": "[urgent, tense] Enemy massing for a counterattack."
   },
   {
    "id": "rad_dawn",
    "role": "radio",
-   "text": "Dawn is breaking."
+   "text": "Dawn is breaking.",
+   "say": "[calm, weary] Dawn is breaking."
   },
   {
    "id": "rad_wave",
    "role": "radio",
-   "text": "Next wave is crossing the line of departure."
+   "text": "Next wave is crossing the line of departure.",
+   "say": "[calm, authoritative] Next wave is crossing the line of departure."
   },
   {
    "id": "rad_no_support",
    "role": "radio",
-   "text": "No fire support available."
+   "text": "No fire support available.",
+   "say": "[crisp, flat] No fire support available."
   },
   {
    "id": "jp_enemy",
    "role": "jp",
    "text": "敵だ!",
-   "romaji": "Teki da!"
+   "romaji": "Teki da!",
+   "takes": [
+    {
+     "tone": "urgent",
+     "say": "[shouting] てきだ!"
+    },
+    {
+     "tone": "cautious",
+     "say": "[whispering, tense] てきだ…"
+    }
+   ]
   },
   {
    "id": "jp_fire",
    "role": "jp",
    "text": "撃て!",
-   "romaji": "Ute!"
+   "romaji": "Ute!",
+   "takes": [
+    {
+     "tone": "urgent",
+     "say": "[shouting] うて!"
+    },
+    {
+     "tone": "calm",
+     "say": "[commanding, forceful] うて!"
+    }
+   ]
   },
   {
    "id": "jp_banzai",
    "role": "jp",
    "text": "天皇陛下万歳!",
-   "romaji": "Tennō heika banzai!"
+   "romaji": "Tennō heika banzai!",
+   "takes": [
+    {
+     "tone": "urgent",
+     "say": "[shouting, fanatical] てんのうへいか、ばんざい!"
+    }
+   ]
   },
   {
    "id": "jp_charge",
    "role": "jp",
    "text": "突撃!",
-   "romaji": "Totsugeki!"
+   "romaji": "Totsugeki!",
+   "takes": [
+    {
+     "tone": "urgent",
+     "say": "[shouting, fierce] とつげき!"
+    }
+   ]
   },
   {
    "id": "jp_grenade",
    "role": "jp",
    "text": "手榴弾!",
-   "romaji": "Shuryūdan!"
+   "romaji": "Shuryūdan!",
+   "takes": [
+    {
+     "tone": "urgent",
+     "say": "[shouting, urgent] しゅりゅうだん!"
+    }
+   ]
   },
   {
    "id": "jp_tank",
    "role": "jp",
    "text": "戦車だ!",
-   "romaji": "Sensha da!"
+   "romaji": "Sensha da!",
+   "takes": [
+    {
+     "tone": "urgent",
+     "say": "[shouting] せんしゃだ!"
+    },
+    {
+     "tone": "cautious",
+     "say": "[low voice, tense] せんしゃだ…"
+    }
+   ]
   },
   {
    "id": "jp_takecover",
    "role": "jp",
    "text": "伏せろ!",
-   "romaji": "Fusero!"
+   "romaji": "Fusero!",
+   "takes": [
+    {
+     "tone": "urgent",
+     "say": "[shouting, urgent] ふせろ!"
+    }
+   ]
   },
   {
    "id": "jp_hold",
    "role": "jp",
    "text": "ここを守れ!",
-   "romaji": "Koko o mamore!"
+   "romaji": "Koko o mamore!",
+   "takes": [
+    {
+     "tone": "urgent",
+     "say": "[shouting] ここをまもれ!"
+    },
+    {
+     "tone": "calm",
+     "say": "[firm, commanding] ここをまもれ。"
+    }
+   ]
   },
   {
    "id": "jp_forward",
    "role": "jp",
    "text": "進め!",
-   "romaji": "Susume!"
+   "romaji": "Susume!",
+   "takes": [
+    {
+     "tone": "urgent",
+     "say": "[shouting] すすめ!"
+    },
+    {
+     "tone": "calm",
+     "say": "[firm, commanding] すすめ。"
+    }
+   ]
   },
   {
    "id": "jp_medic",
    "role": "jp",
    "text": "衛生兵!",
-   "romaji": "Eiseihei!"
+   "romaji": "Eiseihei!",
+   "takes": [
+    {
+     "tone": "urgent",
+     "say": "[shouting, desperate] えいせいへい!"
+    }
+   ]
   },
   {
    "id": "nar_campaign",
    "role": "narrator",
-   "text": "November 1943. Tarawa Atoll, Gilbert Islands. The Second Marine Division will storm Betio, a fortified island barely three kilometres long, held by nearly five thousand Japanese troops. Admiral Shibasaki boasts that a million men could not take it in a hundred years."
+   "text": "November 1943. Tarawa Atoll, Gilbert Islands. The Second Marine Division will storm Betio, a fortified island barely three kilometres long, held by nearly five thousand Japanese troops. Admiral Shibasaki boasts that a million men could not take it in a hundred years.",
+   "say": "[measured, solemn] November 1943. Tarawa Atoll, Gilbert Islands. The Second Marine Division will storm Betio, a fortified island barely three kilometres long, held by nearly five thousand Japanese troops. Admiral Shibasaki boasts that a million men could not take it in a hundred years."
   },
   {
    "id": "nar_s1",
    "role": "narrator",
-   "text": "Day one. The tide is low. Amtracs will carry the first three waves over the reef. Higgins boats behind them may ground on the coral. Get your Marines to the seawall, and silence the guns on Red Beach."
+   "text": "Day one. The tide is low. Amtracs will carry the first three waves over the reef. Higgins boats behind them may ground on the coral. Get your Marines to the seawall, and silence the guns on Red Beach.",
+   "say": "[measured, solemn] Day one. The tide is low. Amtracs will carry the first three waves over the reef. Higgins boats behind them may ground on the coral. Get your Marines to the seawall, and silence the guns on Red Beach."
   },
   {
    "id": "nar_s2",
    "role": "narrator",
-   "text": "Day two. Major Ryan's scratch battalion clings to the western tip of Betio. Clear Green Beach of pillboxes, so the First Battalion, Sixth Marines can land."
+   "text": "Day two. Major Ryan's scratch battalion clings to the western tip of Betio. Clear Green Beach of pillboxes, so the First Battalion, Sixth Marines can land.",
+   "say": "[measured, solemn] Day two. Major Ryan's scratch battalion clings to the western tip of Betio. Clear Green Beach of pillboxes, so the First Battalion, Sixth Marines can land."
   },
   {
    "id": "nar_s3",
    "role": "narrator",
-   "text": "Day three. A massive sand-covered bombproof shelter blocks the advance east of Red Beach Three. Lieutenant Bonnyman's engineers must take it with flamethrowers and demolitions."
+   "text": "Day three. A massive sand-covered bombproof shelter blocks the advance east of Red Beach Three. Lieutenant Bonnyman's engineers must take it with flamethrowers and demolitions.",
+   "say": "[measured, solemn] Day three. A massive sand-covered bombproof shelter blocks the advance east of Red Beach Three. Lieutenant Bonnyman's engineers must take it with flamethrowers and demolitions."
   },
   {
    "id": "nar_s4",
    "role": "narrator",
-   "text": "Night of day three. The last Japanese defenders are gathering in the east of the island. Hold the line until dawn. Expect them to charge."
+   "text": "Night of day three. The last Japanese defenders are gathering in the east of the island. Hold the line until dawn. Expect them to charge.",
+   "say": "[measured, solemn] Night of day three. The last Japanese defenders are gathering in the east of the island. Hold the line until dawn. Expect them to charge."
   },
   {
    "id": "nar_s5",
    "role": "narrator",
-   "text": "November twenty seventh. Buariki, the far end of the atoll. The last Japanese garrison has retreated into the jungle. Hunt them down."
+   "text": "November twenty seventh. Buariki, the far end of the atoll. The last Japanese garrison has retreated into the jungle. Hunt them down.",
+   "say": "[measured, solemn] November twenty seventh. Buariki, the far end of the atoll. The last Japanese garrison has retreated into the jungle. Hunt them down."
   },
   {
    "id": "nar_victory",
    "role": "narrator",
-   "text": "Victory. The cost was terrible, but the lessons learned at Tarawa would save thousands of lives in the battles to come."
+   "text": "Victory. The cost was terrible, but the lessons learned at Tarawa would save thousands of lives in the battles to come.",
+   "say": "[measured, solemn] Victory. The cost was terrible, but the lessons learned at Tarawa would save thousands of lives in the battles to come."
   },
   {
    "id": "nar_defeat",
    "role": "narrator",
-   "text": "The assault has failed. The Marines are thrown back into the sea."
+   "text": "The assault has failed. The Marines are thrown back into the sea.",
+   "say": "[measured, solemn] The assault has failed. The Marines are thrown back into the sea."
   }
  ]
 }

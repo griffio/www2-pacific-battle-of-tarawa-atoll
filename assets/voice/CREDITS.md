@@ -1,34 +1,40 @@
 # Voice credits
 
-All voice lines in this folder (`<id>.mp3`, listed in `manifest.json`) are synthetic speech
-generated locally with open-weights models. No recorded voice actors, and no cloud TTS service, were used.
-To regenerate them, run `tools/gen_voices.py`. The script lists the pip packages it needs at the top.
+All voice lines in this folder are synthetic speech generated with **ElevenLabs** (https://elevenlabs.io).
+No recorded voice actors were used. `manifest.json` lists every line.
+
+To regenerate them, set `ELEVENLABS_API_KEY` and run `tools/gen_voices.py`. Only Python 3.9+, numpy and ffmpeg are needed.
 
 ## Model
 
-- **Kokoro-82M** v1.0 by hexgrad, licensed **Apache-2.0**.
-  https://huggingface.co/hexgrad/Kokoro-82M
-- The model ran through **kokoro-onnx** (MIT), using the ONNX export of Kokoro v1.0 weights and voices
-  (`kokoro-v1.0.onnx`, `voices-v1.0.bin`).
-  https://github.com/thewh1teagle/kokoro-onnx
+- **eleven_v3** text-to-speech. Bracketed audio tags in each prompt (the manifest's `say` field) set the delivery,
+  for example `[shouting]`, `[whispering, tense]` or `[firm, commanding]`.
+- Every take was transcribed with **ElevenLabs Scribe** (`scribe_v1`) and compared with its prompt. A take that dropped
+  words or read a tag aloud was regenerated with a new seed.
 
-## Grapheme-to-phoneme
+## Takes
 
-- **misaki** (Apache-2.0), Kokoro's G2P library. It handles English (US and GB) and Japanese.
-  https://github.com/hexgrad/misaki
-  - English uses spaCy `en_core_web_sm` (MIT), with **espeak-ng** (GPL-3.0) as the fallback for
-    out-of-vocabulary words. espeak-ng only produced phonemes here. It made none of the audio.
-  - Japanese uses cutlet/fugashi (MIT) with the **unidic-lite** dictionary (BSD/MIT-style).
+Most combat lines (US and Japanese) have several takes, one per tone. The files are named `<id>.<tone>.mp3`:
 
-## Casting
+| Tone       | Delivery |
+|------------|----------|
+| `urgent`   | Shouted over the noise, under fire |
+| `cautious` | Low, tense or whispered, for sneaking, ambush or spotting the enemy |
+| `calm`     | Firm and commanding, when the unit is in control |
 
-| Role       | Kokoro voice | Speed | Notes |
-|------------|--------------|-------|-------|
-| `us`       | `am_fenrir`  | 1.10  | US male, combat delivery, light compression |
-| `us2`      | `am_puck`    | 1.08  | A second US male, combat delivery, light compression |
-| `radio`    | `am_michael` | 1.05  | US male, calm and clipped. The audio is clean: the game adds the radio band-pass at runtime |
-| `jp`       | `jm_kumo`    | 1.05  | Japanese male, speaking the Japanese text |
-| `narrator` | `bm_george`  | 0.95  | British male, calm documentary voice |
+The game picks the take from the speaker's team: urgent when it is suppressed or pinned, cautious when it is
+sneaking or in ambush, and calm otherwise. If a line has no take in that tone, the nearest delivery is used.
+Radio and narration lines have one take each, named `<id>.mp3`.
+
+## Casting (ElevenLabs premade voices)
+
+| Role       | Voice  | Notes |
+|------------|--------|-------|
+| `us`       | Adam   | Marine NCO: dominant and firm. Light compression |
+| `us2`      | Harry  | A second Marine: rough and fierce. Light compression |
+| `radio`    | Bill   | Older officer on the net: crisp. The audio is clean; the game adds the radio band-pass at runtime |
+| `jp`       | Callum | Japanese soldier. Kana prompts are spoken with `language_code=ja`; the kanji `text` is for display |
+| `narrator` | George | British documentary voice |
 
 ## Post-processing
 
@@ -39,5 +45,3 @@ Processing used ffmpeg (libmp3lame) and numpy:
 - leading and trailing silence trimmed
 - peak normalised to -1 dBFS
 - encoded as 80 kbps CBR MP3
-
-No fallback engines were used. Every line was made with Kokoro-82M, and none came from espeak-ng or macOS `say`.
