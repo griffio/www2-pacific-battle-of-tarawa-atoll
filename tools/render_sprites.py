@@ -565,6 +565,87 @@ def truck_wreck(name, burned, seed):
     return S.finish(0.03, seed)
 
 
+# --------------------------------------------------------------------------------------------- soldiers
+SOL_UNIT = 0.48   # m of real figure per unit of the game's soldier size (the SDF figures are drawn about 2× life size)
+SOL_UNIT_PRONE = 0.94   # prone figures are shortened to the SDF's proportions, about 2.5 units nose to boots
+SKIN = (0.72, 0.53, 0.40)
+
+
+def camo_cover(seed):
+    """USMC reversible helmet cover, green side: brown and green spots on khaki green."""
+    def f(X, Y):
+        h, w = X.shape
+        n1 = vnoise(h, w, 5, seed, 2); n2 = vnoise(h, w, 4, seed + 3, 2)
+        c = np.ones((h, w, 3), np.float32) * np.array((0.42, 0.42, 0.27), np.float32)
+        c = np.where((n1 > 0.6)[..., None], np.array((0.30, 0.34, 0.20), np.float32), c)
+        return np.where((n2 > 0.66)[..., None], np.array((0.40, 0.30, 0.20), np.float32), c)
+    return f
+
+
+def soldier(name, side, stance, weapon, seed):
+    """One infantryman seen from straight above, facing +x. side 'us' | 'jp'; stance 'stand' | 'crouch' | 'prone';
+    weapon 'rifle' | 'mg'. Real size in metres; the game scales it by size / SOL_UNIT."""
+    us = side == 'us'
+    uni = paint((0.30, 0.36, 0.22) if us else (0.52, 0.47, 0.31), None, seed, 0.3)
+    kit = (0.37, 0.35, 0.25) if us else (0.42, 0.33, 0.22)
+    helm = camo_cover(seed) if us else paint((0.40, 0.41, 0.27), None, seed + 1, 0.2)
+    boot = (0.30, 0.22, 0.15) if us else (0.26, 0.20, 0.14)
+    gun_len = (1.1 if us else 1.28) if weapon == 'rifle' else 1.2
+    prone = stance == 'prone'
+    S = Sprite(name, 2.6 if prone else 1.5, 1.0 if prone else 0.9, 64, pad=0.15)
+    if prone:
+        for side_y in (-1, 1):                                                    # legs, splayed, boots up
+            S.tube((-0.3, side_y * 0.09), (-0.98, side_y * 0.19), 0.085, 0.07, 0.1, 0.1, uni)
+            S.box(-1.05, side_y * 0.2, 0.1, 0.05, 0, 0.16, 0.03, boot, rot=side_y * 0.15)
+        S.ellipsoid(0.0, 0, 0.42, 0.22, 0.05, 0.2, uni)                           # torso
+        S.box(-0.08, 0, 0.16, 0.14, 0, 0.32, 0.05, kit)                           # pack
+        z, hx, ex = 0.22, 0.45, 0.42                                              # gun height, helmet x, elbows x
+        for side_y in (-1, 1): S.tube((0.18, side_y * 0.2), (ex, side_y * 0.27), 0.055, 0.05, 0.2, 0.18, uni)
+        hands = [(0.55, 0.16), (0.75, 0.1)]
+        g0 = (0.3, 0.15)
+    else:
+        lean = 0.06 if stance == 'crouch' else 0.0
+        top = 1.0 if stance == 'crouch' else 1.4
+        if stance == 'crouch':
+            S.tube((0.0, -0.11), (0.36, -0.13), 0.075, 0.065, 0.5, 0.45, uni)    # forward thigh, knee up
+            S.box(0.42, -0.13, 0.12, 0.05, 0, 0.12, 0.03, boot)
+            S.box(-0.28, 0.12, 0.12, 0.05, 0, 0.15, 0.03, boot)                   # kneeling leg's boot behind
+        else:
+            S.box(0.16, -0.1, 0.12, 0.05, 0, 0.1, 0.03, boot); S.box(-0.16, 0.1, 0.12, 0.05, 0, 0.1, 0.03, boot)
+        S.ellipsoid(lean, 0, 0.14, 0.28, top - 0.15, 0.15, uni)                   # shoulders
+        S.box(lean - 0.16, 0, 0.07, 0.14, 0, top + 0.04, 0.04, kit)              # pack
+        z, hx = top - 0.1, lean + 0.05
+        for sh_, el, hd in (((lean, 0.25), (lean + 0.17, 0.27), (lean + 0.3, 0.15)),       # right arm to the grip
+                            ((lean, -0.25), (lean + 0.26, -0.18), (lean + 0.44, 0.09))):   # left arm to the fore-end
+            S.tube(sh_, el, 0.055, 0.05, top - 0.05, z, uni); S.tube(el, hd, 0.05, 0.045, z, z, uni)
+        hands = [(lean + 0.3, 0.15), (lean + 0.44, 0.09)]
+        g0 = (lean - 0.15, 0.15)
+    # weapon: wooden stock and fore-end, dark receiver and barrel
+    g1 = (g0[0] + gun_len, g0[1] - 0.06)
+    if weapon == 'mg':
+        S.tube(g0, g1, 0.045, 0.035, z, z, DARK)
+        S.tube((g0[0] + 0.45, g0[1] - 0.025), (g0[0] + 0.85, g0[1] - 0.045), 0.05, 0.05, z + 0.01, z + 0.01, (0.20, 0.20, 0.18))  # barrel jacket
+        S.box(g0[0] + 0.35, g0[1] - 0.02, 0.07, 0.05, 0, z + 0.06, 0.02, (0.24, 0.24, 0.20))                                  # feed tray
+    else:
+        S.tube(g0, g1, 0.026, 0.02, z, z, DARK)
+        t = lambda a: (g0[0] + (g1[0] - g0[0]) * a, g0[1] + (g1[1] - g0[1]) * a)
+        S.tube(g0, t(0.3), 0.04, 0.03, z + 0.01, z + 0.01, WOOD)                 # stock
+        S.tube(t(0.42), t(0.78), 0.028, 0.026, z + 0.01, z + 0.01, WOOD)          # fore-end
+    for hx_, hy_ in hands: S.disk(hx_, hy_, 0.045, 0, z + 0.04, 0.02, SKIN)
+    # helmet: brim, then the dome
+    S.ellipsoid(hx, 0, 0.155, 0.145, (0.25 if prone else top) + 0.08, 0.04, helm)
+    S.ellipsoid(hx, 0, 0.125, 0.115, (0.25 if prone else top) + 0.1, 0.13, helm)
+    S.meta = {'kind': 'soldier', 'unit': SOL_UNIT_PRONE if prone else SOL_UNIT}
+    return S.finish(0.0, seed)
+
+
+def soldiers():
+    """Pilot set of soldier sprites (sol_<side>_<stance>_<weapon>), drawn with ?soldier-sprites."""
+    return [soldier('sol_us_stand_rifle', 'us', 'stand', 'rifle', 81), soldier('sol_us_crouch_rifle', 'us', 'crouch', 'rifle', 82),
+            soldier('sol_us_prone_rifle', 'us', 'prone', 'rifle', 83), soldier('sol_us_stand_mg', 'us', 'stand', 'mg', 84),
+            soldier('sol_jp_stand_rifle', 'jp', 'stand', 'rifle', 85), soldier('sol_jp_prone_rifle', 'jp', 'prone', 'rifle', 86)]
+
+
 # --------------------------------------------------------------------------------------------- fortifications & buildings
 _TEX = {}
 def tex(name, tile):
@@ -788,7 +869,7 @@ def main():
     for i in range(6): sp.append(palm(f'palm{i}', 100 + i, 0.0)); print('palm', i)
     for i in range(5): sp.append(palm(f'palm_hit{i}', 200 + i, 0.5)); print('palm hit', i)
     for i in range(3): sp.append(palm(f'palm_dead{i}', 300 + i, 0.9)); print('palm dead', i)
-    sp += vehicles()
+    sp += vehicles() + soldiers()
     # fortifications at their STRUCT_SPECS size (x = spec.h, y = spec.w; slit faces +x)
     sp += [st_pillbox('st_pillbox', 7, 7, 2.1, 61), st_pillbox('st_steelpb', 6, 6, 2.2, 62, steel=True),
            st_bunker('st_bunker', 9, 13, 2.6, 63), st_bunker('st_log', 6, 8, 1.8, 64),

@@ -15,6 +15,10 @@ const SEL_COL = { sel: [1, 0.86, 0.38], hover: [0.8, 0.92, 1] };
 const PALM_R = 4.4;
 const TURRET = { [K.SHERMAN]: ['sherman', 0.25], [K.STUART]: ['stuart', 0.1], [K.HAGO]: ['hago', 0.45] };
 const TRUCK_FOOT = [5.6, 2.4];   // wrecked-truck props are drawn at the truck's own size, whatever the prop's footprint
+// pilot: draw soldiers from pre-rendered sprites (sol_<side>_<stance>_<weapon>) when the URL has ?soldier-sprites
+const SOLDIER_SPRITES = typeof location !== 'undefined' && new URLSearchParams(location.search).has('soldier-sprites');
+const STANCE_NAME = ['stand', 'crouch', 'prone'], WEP_NAME = ['rifle', 'mg'];
+let soldierMan = null;
 
 export class Scene {
   constructor(renderer, map) {
@@ -137,6 +141,7 @@ export class Scene {
       if (t.selected) selVeh.set(v, 1); else if (t === hoverTeam && !selVeh.has(v)) selVeh.set(v, 0.5);
     }
     const kSoldier = sz / 1.15;
+    soldierMan = SOLDIER_SPRITES ? this.r.spriteMan : null;
     // bodies & incapacitated
     for (const s of g.soldiers) {
       if (s.state !== 'dead' && s.state !== 'incap') continue;
@@ -282,5 +287,12 @@ export class Scene {
 
 function L_soldier(A, s, x, y, size, stance, anim, depth, alpha, sel = 0) {
   const wcls = WEP[s.wpn.cls] ?? 0;
+  // selected, wounded, dead and wading soldiers keep the shader figure (highlight, water ripple)
+  const sp = soldierMan && !sel && stance < 3 && depth < 0.25 && soldierMan.sprites[`sol_${s.side.toLowerCase()}_${STANCE_NAME[stance]}_${WEP_NAME[wcls]}`];
+  if (sp) {
+    const k = size / sp.unit;
+    A.push(x, y, sp.half[0] * k, sp.half[1] * k, s.dir, K.ATLAS, 0, 0, 1, 1, 1, alpha, ...sp.uv);
+    return;
+  }
   A.push(x, y, size, size, s.dir, stance >= 3 ? K.BODY : K.SOLDIER, stance, wcls, 1, 1, 1, alpha, s.sideIdx, anim, Math.max(0, depth), sel);
 }
