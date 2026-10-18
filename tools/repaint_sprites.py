@@ -35,7 +35,7 @@ Raw model takes, inputs and a before/after sheet (compare.jpg) are kept in tools
 """
 import argparse, hashlib, io, json, math, os, sys, time, urllib.error, urllib.request, uuid
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw
 import render_sprites
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -48,7 +48,8 @@ SUN = np.array([-0.45, -0.45, 0.77]) / np.linalg.norm([-0.45, -0.45, 0.77])
 CANVAS = 1024                   # long side of the model canvas (px)
 MATCH_SIGMA = 5.0               # texels; colour is matched to the original paint at this scale and above
 
-COMMON = ('Repaint this top-down render as a highly detailed photograph of the real 1943 vehicle, taken from directly above, '
+COMMON = ('Repaint this top-down render as a highly detailed photograph of the real 1943 vehicle, taken from directly above '
+          '(a strict plan view: no sides, doors or wheel faces visible), '
           'in flat overcast light with no cast shadows: worn paint, weld seams, bolts and rivets, hatches, dust and salt stains. '
           'Keep exactly the same shape, outline, size, position and paint colours, and the straight overhead camera. '
           'Keep the flat bright green background. The front of the vehicle points to the right. Subject: ')
@@ -69,7 +70,10 @@ PROMPTS = {
     'lcvp_ramp':      'LCVP Higgins boat landing craft: navy grey painted plywood hull, steel bow ramp at the right lowered flat, coxswain station at the stern on the left, empty well deck with wooden floor boards.',
     'lcm':            'LCM-3 landing craft mechanized: navy grey welded steel hull, bow ramp at the right raised, open steel well deck, coxswain station and engine room at the stern on the left, nothing on the ramp.',
     'lcm_ramp':       'LCM-3 landing craft mechanized: navy grey welded steel hull, bow ramp at the right lowered flat, open steel well deck, coxswain station and engine room at the stern on the left, nothing on the ramp.',
-    # 'truck' is left out: the atlas truck isn't drawn in game (wrecked trucks on Betio are a shader shape)
+    'truck_wreck0':   'burnt-out wreck of a Japanese Type 94 army truck: cab roof burnt away showing charred seat springs and a steering wheel, '
+                      'scorched rusty bonnet with louvres and mudguards, cargo bed floor mostly burnt away leaving charred planks over the chassis rails, ash.',
+    'truck_wreck1':   'shot-up abandoned Japanese Type 94 army truck: faded khaki bonnet with louvres and mudguards, flat cab roof with bullet holes, '
+                      'open wooden cargo bed with weathered grey-brown floor planks and one side board shot away, evenly faded paint with light dust.',
 }
 
 
@@ -231,10 +235,20 @@ def finish(take, size, bx, box, a, sh, match):
     return np.dstack([col, a[..., 3]])
 
 
+def fill_holes(m):
+    """Silhouette without holes: everything not reachable from the canvas corner through background."""
+    im = Image.fromarray((m * 255).astype(np.uint8))
+    ImageDraw.floodfill(im, (0, 0), 128)
+    return np.asarray(im) != 128
+
+
 def outline_match(canvas, take, inmask, tol=6):
     """Outline agreement allowing tol px of drift: the smaller of (take inside the dilated input) and
-    (input inside the dilated take). Plain IoU punishes thin parts such as gun barrels too hard."""
-    m1 = key_mask(np.asarray(take.resize(canvas.size, Image.BILINEAR)))
+    (input inside the dilated take). Plain IoU punishes thin parts such as gun barrels too hard. Holes are
+    filled first: the model may paint debris where a wreck shows the ground, and the original alpha is
+    kept anyway."""
+    m1 = fill_holes(key_mask(np.asarray(take.resize(canvas.size, Image.BILINEAR))))
+    inmask = fill_holes(inmask)
     prec = (m1 & dilate(inmask, tol)).sum() / max(1, m1.sum())
     rec = (inmask & dilate(m1, tol)).sum() / max(1, inmask.sum())
     return float(min(prec, rec))

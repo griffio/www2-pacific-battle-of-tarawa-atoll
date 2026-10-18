@@ -14,6 +14,7 @@ const SEL_COL = { sel: [1, 0.86, 0.38], hover: [0.8, 0.92, 1] };
 // pre-rendered atlas sprites (assets/sprites): model crown radius of the palms, turret pivots ahead of hull centre (m)
 const PALM_R = 4.4;
 const TURRET = { [K.SHERMAN]: ['sherman', 0.25], [K.STUART]: ['stuart', 0.1], [K.HAGO]: ['hago', 0.45] };
+const TRUCK_FOOT = [5.6, 2.4];   // wrecked-truck props are drawn at the truck's own size, whatever the prop's footprint
 
 export class Scene {
   constructor(renderer, map) {
@@ -32,6 +33,7 @@ export class Scene {
     for (const p of map.props) {
       if (p.k === K.STUMP) { S.push(p.x, p.y, 0.32, 0.32, 0, 0, 2 + p.p0 * 3, 0.9, 0, 0, 1, 0); continue; }
       const h = TALL[p.k];
+      if (p.k === K.TRUCK) { S.push(p.x, p.y, TRUCK_FOOT[0] / 2, TRUCK_FOOT[1] / 2, p.rot, 1, h, 1, 0, 0, 1, 0); continue; }
       if (h) S.push(p.x, p.y, p.hw, p.hh, p.rot, 1, p.k === K.RUBBLE ? h * (0.5 + p.p1 * 0.6) : h, p.k === K.PIER ? 0.8 : 1, 0, 0, p.k === K.PIER ? 0 : 1, 0);
     }
     const structs = g ? g.structures : map.structures;
@@ -67,6 +69,7 @@ export class Scene {
     };
     for (const p of map.props) {
       if (p.k === K.BUILDING && atlasFit(L, p.p1 < 0.5 ? 'shed0' : 'shed1', p.x, p.y, p.hw * 2, p.hh * 2, p.rot, p.p0 > 0.5)) continue;
+      if (p.k === K.TRUCK && atlasFit(L, p.p1 < 0.5 ? 'truck_wreck0' : 'truck_wreck1', p.x, p.y, TRUCK_FOOT[0], TRUCK_FOOT[1], p.rot, false)) continue;
       if (p.k === K.HUT && atlasFit(L, p.p1 < 0.5 ? 'hut0' : 'hut1', p.x, p.y, p.hw * 2, p.hh * 2, p.rot, p.p0 > 0.5)) continue;
       L.push(p.x, p.y, p.hw, p.hh, p.rot, p.k, p.p0, p.p1, 1, 1, 1, 1, p.p2, p.p3);
     }

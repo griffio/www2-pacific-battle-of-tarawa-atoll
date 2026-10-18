@@ -499,19 +499,70 @@ def tank_turret(name, kind, seed):
     return S.finish(0.04, seed)
 
 
-def truck(name, seed):
-    L, W = 5.6, 2.2
+def burnt(base, seed, amount):
+    """Colour function: paint burnt away to charcoal and rust in patches (amount 0..1)."""
+    def f(X, Y):
+        h, w = X.shape
+        c = paint(base, None, seed, 0.4)(X, Y)
+        n = vnoise(h, w, 40, seed + 5, 3); r = vnoise(h, w, 16, seed + 9, 3)
+        char = np.clip(amount * 1.5 - 0.45 + (n - 0.5) * 1.2, 0, 1)[..., None]            # broad, soft burn patches
+        rust = np.array((0.38, 0.22, 0.13), np.float32); black = np.array((0.13, 0.12, 0.11), np.float32)
+        scorched = rust + (black - rust) * np.clip(0.5 + (r - 0.5) * 1.6, 0, 1)[..., None]
+        return c * (1 - char) + scorched * (0.85 + 0.3 * r)[..., None] * char
+    return f
+
+
+def truck_wreck(name, burned, seed):
+    """Wrecked IJA Type 94 6x4 truck seen from above (the trucks littering Betio).
+    burned: burnt out, cab roof and bed floor gone, tyres burnt to the rims; otherwise shot up and abandoned."""
+    L, W = 5.6, 2.3
     S = Sprite(name, L, W, 40)
-    tan = paint((0.50, 0.46, 0.32), None, seed)
-    for x in (-1.9, -0.9, 1.7):
-        for side in (-1, 1): S.box(x, side * 0.9, 0.42, 0.14, 0, 0.75, 0.1, (0.13, 0.12, 0.11))
-    S.box(1.9, 0, 0.75, 0.75, 0, 1.25, 0.15, tan)              # bonnet
-    S.box(1.0, 0, 0.45, 0.95, 0, 2.05, 0.12, tan)              # cab roof
-    S.box(-1.35, 0, 1.6, 1.05, 0, 1.3, 0.05, tan)              # bed
-    S.box(-1.35, 0, 1.5, 0.95, 0, 0.95, 0.02, (0.4, 0.33, 0.22), mode='set')
-    for i in range(4): S.box(-2.6 + i * 0.85, 0, 0.03, 0.94, 0, 0.97, 0, (0.33, 0.27, 0.18))
-    S.meta = {'kind': 'truck', 'len': L, 'wid': W}
-    return S.finish(0.05, seed)
+    rnd = random.Random(seed)
+    khaki = (0.50, 0.46, 0.32)
+    body = burnt(khaki, seed, 0.85 if burned else 0.3)
+    wood = burnt(WOOD, seed + 1, 0.9 if burned else 0.35)
+    for side in (-1, 1): S.box(-0.15, side * 0.42, 2.55, 0.07, 0, 0.75, 0.02, DARK)          # chassis rails
+    for x in (1.85, -1.15, -2.15):                                                            # wheels: tyres, or bare rims
+        for side in (-1, 1):
+            if burned: S.box(x, side * 0.9, 0.36, 0.1, 0, 0.7, 0.08, (0.30, 0.20, 0.13))
+            else: S.box(x, side * 0.9, 0.42, 0.15, 0, 0.85 if rnd.random() < 0.6 else 0.65, 0.12, (0.10, 0.10, 0.09))
+    for side in (-1, 1):
+        S.ellipsoid(1.85, side * 0.84, 0.55, 0.18, 0.8, 0.18, body)                            # front mudguards
+        S.box(1.1, side * 0.92, 0.32, 0.1, 0, 0.6, 0.02, STEEL)                                # running boards
+        S.disk(2.5, side * 0.72, 0.12, 0, 1.08, 0.04, DARK if burned else (0.55, 0.55, 0.5))   # headlights
+    S.box(2.05, 0, 0.55, 0.48, 0, 1.3, 0.15, body)                                            # bonnet
+    for k in range(5):
+        for side in (-1, 1): S.box(1.75 + k * 0.13, side * 0.36, 0.025, 0.07, 0, 1.31, 0, DARK)  # louvres
+    S.box(2.63, 0, 0.05, 0.44, 0, 1.2, 0.02, (0.16, 0.15, 0.13))                              # radiator
+    if burned:
+        # cab roof burnt away: door tops, charred seat and floor, steering wheel
+        S.box(0.92, 0, 0.47, 0.93, 0, 0.95, 0.02, (0.14, 0.12, 0.10))
+        for side in (-1, 1): S.box(0.92, side * 0.88, 0.47, 0.05, 0, 1.6, 0.02, body)
+        S.box(0.45, 0, 0.05, 0.93, 0, 1.6, 0.02, body); S.box(1.41, 0, 0.05, 0.93, 0, 1.45, 0.02, body)
+        S.box(0.72, 0, 0.18, 0.78, 0, 1.2, 0.05, (0.25, 0.20, 0.15))
+        for k in range(6): S.box(0.72, -0.7 + k * 0.28, 0.16, 0.012, 0, 1.22, 0, (0.35, 0.22, 0.14))   # seat springs
+        S.tube((1.2, -0.62), (1.2, -0.3), 0.025, 0.025, 1.5, 1.5, DARK)
+        S.tube((1.11, -0.46), (1.29, -0.46), 0.025, 0.025, 1.5, 1.5, DARK)
+    else:
+        S.box(0.92, 0, 0.47, 0.95, 0, 2.0, 0.12, body)                                       # cab roof
+        S.box(1.46, 0, 0.06, 0.8, 0, 1.9, 0.02, (0.2, 0.22, 0.22))                            # windscreen
+        for _ in range(7): S.disk(0.92 + rnd.uniform(-0.35, 0.35), rnd.uniform(-0.8, 0.8), 0.05, 0, 2.02, 0, DARK)  # bullet holes
+    # cargo bed: floor planks (mostly burnt away on the burnt wreck), side and tail boards
+    x0, x1, hy = -2.8, 0.38, 1.1
+    for k in range(9):
+        y = -hy + (k + 0.5) * (2 * hy / 9)
+        if burned and rnd.random() < 0.65: continue
+        if not burned and rnd.random() < 0.12: continue
+        S.box((x0 + x1) / 2, y, (x1 - x0) / 2 - 0.05, hy / 9 - 0.008, 0, 1.0, 0.01, wood)
+    for xb in (-2.3, -1.2, -0.1): S.box(xb, 0, 0.05, hy, 0, 0.95, 0, DARK)                      # bed cross-members
+    broken = rnd.choice((-1, 1))
+    for side in (-1, 1):
+        if burned and rnd.random() < 0.3: continue
+        xs = x1 - 1.0 if not burned and side == broken else x0          # shot-up: one side board mostly gone
+        S.box((xs + x1) / 2, side * hy, (x1 - xs) / 2, 0.05, 0, 1.5, 0.02, wood)
+    S.box(x0 + 0.04, 0, 0.05, hy, 0, 1.45, 0.02, wood)                                       # tailboard
+    S.meta = {'kind': 'wreck', 'sx': L, 'sy': 2.4}
+    return S.finish(0.03, seed)
 
 
 # --------------------------------------------------------------------------------------------- fortifications & buildings
@@ -727,7 +778,7 @@ def vehicles():
     sp += [lcm('lcm', False, False, 31), lcm('lcm_ramp', True, False, 32)]
     for k in ('sherman', 'stuart', 'hago'):
         sp += [tank_hull(k, k, 41), tank_turret(k + '_turret', k, 42)]
-    sp.append(truck('truck', 51))
+    sp += [truck_wreck('truck_wreck0', True, 51), truck_wreck('truck_wreck1', False, 52)]
     return sp
 
 

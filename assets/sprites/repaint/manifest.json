@@ -88,5 +88,17 @@
   "match": 0.959,
   "model": "@cf/black-forest-labs/flux-2-klein-4b",
   "seed": 7
+ },
+ "truck_wreck0": {
+  "alpha": "f8d333d51dbfbecf",
+  "match": 1.0,
+  "model": "@cf/black-forest-labs/flux-2-klein-4b",
+  "seed": 7
+ },
+ "truck_wreck1": {
+  "alpha": "720ad8c3ba7d0b2f",
+  "match": 1.0,
+  "model": "@cf/black-forest-labs/flux-2-klein-4b",
+  "seed": 7
  }
 }
