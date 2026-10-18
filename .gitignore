@@ -4,3 +4,5 @@ __pycache__/
 *.pem
 tools/.texcache/
 tools/.sfxcache/
+.env
+tools/.repaintcache/

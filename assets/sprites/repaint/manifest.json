@@ -1,0 +1,92 @@
+{
+ "hago": {
+  "alpha": "8a71d2c3b3b6112c",
+  "match": 0.996,
+  "model": "@cf/black-forest-labs/flux-2-klein-4b",
+  "seed": 7
+ },
+ "hago_turret": {
+  "alpha": "b6665ec86aa3e810",
+  "match": 0.987,
+  "model": "@cf/black-forest-labs/flux-2-klein-4b",
+  "seed": 1007
+ },
+ "lcm": {
+  "alpha": "0bbbeeb6a441959c",
+  "match": 0.995,
+  "model": "@cf/black-forest-labs/flux-2-klein-4b",
+  "seed": 7
+ },
+ "lcm_ramp": {
+  "alpha": "539047e06abae524",
+  "match": 0.995,
+  "model": "@cf/black-forest-labs/flux-2-klein-4b",
+  "seed": 7
+ },
+ "lcvp": {
+  "alpha": "9c31515947fb6706",
+  "match": 0.995,
+  "model": "@cf/black-forest-labs/flux-2-klein-4b",
+  "seed": 7
+ },
+ "lcvp_load": {
+  "alpha": "9c31515947fb6706",
+  "match": 0.996,
+  "model": "@cf/black-forest-labs/flux-2-klein-4b",
+  "seed": 7
+ },
+ "lcvp_ramp": {
+  "alpha": "21edfb582524a871",
+  "match": 0.992,
+  "model": "@cf/black-forest-labs/flux-2-klein-4b",
+  "seed": 7
+ },
+ "lvt1": {
+  "alpha": "e07e998f5f62edd7",
+  "match": 0.984,
+  "model": "@cf/black-forest-labs/flux-2-klein-4b",
+  "seed": 7
+ },
+ "lvt1_load": {
+  "alpha": "e07e998f5f62edd7",
+  "match": 0.999,
+  "model": "@cf/black-forest-labs/flux-2-klein-4b",
+  "seed": 7
+ },
+ "lvt2": {
+  "alpha": "9e9557a1a021bde3",
+  "match": 0.993,
+  "model": "@cf/black-forest-labs/flux-2-klein-4b",
+  "seed": 7
+ },
+ "lvt2_load": {
+  "alpha": "9e9557a1a021bde3",
+  "match": 0.999,
+  "model": "@cf/black-forest-labs/flux-2-klein-4b",
+  "seed": 7
+ },
+ "sherman": {
+  "alpha": "8577d7637411769b",
+  "match": 0.999,
+  "model": "@cf/black-forest-labs/flux-2-klein-4b",
+  "seed": 2007
+ },
+ "sherman_turret": {
+  "alpha": "ab2f1a7bf5e3d0f7",
+  "match": 0.953,
+  "model": "@cf/black-forest-labs/flux-2-klein-4b",
+  "seed": 7
+ },
+ "stuart": {
+  "alpha": "7936b9236b10b87b",
+  "match": 0.973,
+  "model": "@cf/black-forest-labs/flux-2-klein-4b",
+  "seed": 7
+ },
+ "stuart_turret": {
+  "alpha": "7b34343417ca7885",
+  "match": 0.959,
+  "model": "@cf/black-forest-labs/flux-2-klein-4b",
+  "seed": 7
+ }
+}

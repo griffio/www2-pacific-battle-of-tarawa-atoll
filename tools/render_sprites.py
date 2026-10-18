@@ -720,18 +720,24 @@ def pack(sprites, width=4096):
     return A, N, man
 
 
+def vehicles():
+    """Every vehicle and landing-craft sprite (tools/repaint_sprites.py renders these too)."""
+    sp = [lvt('lvt1', 0, False, 11), lvt('lvt1_load', 0, True, 12), lvt('lvt2', 1, False, 13), lvt('lvt2_load', 1, True, 14)]
+    sp += [lcvp('lcvp', False, False, 21), lcvp('lcvp_load', False, True, 22), lcvp('lcvp_ramp', True, False, 23)]
+    sp += [lcm('lcm', False, False, 31), lcm('lcm_ramp', True, False, 32)]
+    for k in ('sherman', 'stuart', 'hago'):
+        sp += [tank_hull(k, k, 41), tank_turret(k + '_turret', k, 42)]
+    sp.append(truck('truck', 51))
+    return sp
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     sp = []
     for i in range(6): sp.append(palm(f'palm{i}', 100 + i, 0.0)); print('palm', i)
     for i in range(5): sp.append(palm(f'palm_hit{i}', 200 + i, 0.5)); print('palm hit', i)
     for i in range(3): sp.append(palm(f'palm_dead{i}', 300 + i, 0.9)); print('palm dead', i)
-    sp += [lvt('lvt1', 0, False, 11), lvt('lvt1_load', 0, True, 12), lvt('lvt2', 1, False, 13), lvt('lvt2_load', 1, True, 14)]
-    sp += [lcvp('lcvp', False, False, 21), lcvp('lcvp_load', False, True, 22), lcvp('lcvp_ramp', True, False, 23)]
-    sp += [lcm('lcm', False, False, 31), lcm('lcm_ramp', True, False, 32)]
-    for k in ('sherman', 'stuart', 'hago'):
-        sp += [tank_hull(k, k, 41), tank_turret(k + '_turret', k, 42)]
-    sp.append(truck('truck', 51))
+    sp += vehicles()
     # fortifications at their STRUCT_SPECS size (x = spec.h, y = spec.w; slit faces +x)
     sp += [st_pillbox('st_pillbox', 7, 7, 2.1, 61), st_pillbox('st_steelpb', 6, 6, 2.2, 62, steel=True),
            st_bunker('st_bunker', 9, 13, 2.6, 63), st_bunker('st_log', 6, 8, 1.8, 64),
@@ -741,6 +747,8 @@ def main():
     print('structures done')
     print('vehicles done')
     A, N, man = pack(sp)
+    from repaint_sprites import apply_saved      # model-repainted vehicle albedo (tools/repaint_sprites.py)
+    print('repaints', apply_saved(A, man))
     A.save(os.path.join(OUT, 'atlas_a.webp'), quality=90, method=6)
     N.save(os.path.join(OUT, 'atlas_n.webp'), lossless=True, method=4)
     with open(os.path.join(OUT, 'manifest.json'), 'w') as f: json.dump(man, f, indent=1)
