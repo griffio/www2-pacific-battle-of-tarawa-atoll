@@ -582,68 +582,191 @@ def camo_cover(seed):
     return f
 
 
-def soldier(name, side, stance, weapon, seed):
-    """One infantryman seen from straight above, facing +x. side 'us' | 'jp'; stance 'stand' | 'crouch' | 'prone';
-    weapon 'rifle' | 'mg'. Real size in metres; the game scales it by size / SOL_UNIT."""
+SOL_SIZE = {'stand': (1.5, 0.9), 'crouch': (1.5, 0.9), 'prone': (2.6, 1.0), 'down': (2.4, 1.5)}
+SOL_WEAPONS = ('rifle', 'mg', 'at', 'flame', 'smg', 'mortar', 'pistol')    # the game's weapon classes 0..6 (scene.js WEP)
+
+
+def _sol_colours(side, seed, dim=1.0):
+    """Uniform, kit, helmet and boot colours; dim < 1 darkens them (the wounded and the dead, as the SDF figures did)."""
     us = side == 'us'
-    uni = paint((0.30, 0.36, 0.22) if us else (0.52, 0.47, 0.31), None, seed, 0.3)
-    kit = (0.37, 0.35, 0.25) if us else (0.42, 0.33, 0.22)
+    d = lambda c: tuple(v * dim for v in c)
     helm = camo_cover(seed) if us else paint((0.40, 0.41, 0.27), None, seed + 1, 0.2)
-    boot = (0.30, 0.22, 0.15) if us else (0.26, 0.20, 0.14)
-    gun_len = (1.1 if us else 1.28) if weapon == 'rifle' else 1.2
+    return dict(us=us, uni=paint(d((0.30, 0.36, 0.22) if us else (0.52, 0.47, 0.31)), None, seed, 0.3),
+                kit=d((0.37, 0.35, 0.25) if us else (0.42, 0.33, 0.22)),
+                helm=(lambda X, Y: helm(X, Y) * dim), boot=d((0.30, 0.22, 0.15) if us else (0.26, 0.20, 0.14)))
+
+
+def _sol_sprite(name, stance):
+    w, h = SOL_SIZE[stance]
+    return Sprite(name, w, h, 64, pad=0.15)
+
+
+def _sol_done(S, stance):
+    S.meta = {'kind': 'soldier', 'unit': SOL_UNIT if stance in ('stand', 'crouch') else SOL_UNIT_PRONE}
+    return S.finish(0.0, 0)
+
+
+def _weapon(S, c, weapon, g0, z, prone):
+    """Long arm along +x from g0 (butt) at height z; returns where the hands go."""
+    us = c['us']
+    def line(length, r0, r1, col, dz=0.0, y0=0.0, a=0.0):
+        a0 = (g0[0] + a * length, g0[1] - 0.055 * a)
+        b = (g0[0] + length, g0[1] - 0.055 + y0)
+        S.tube(a0, b, r0, r1, z + dz, z + dz, col); return b
+    if weapon == 'mg':
+        end = line(1.2 if us else 1.1, 0.045, 0.035, DARK)
+        if us: S.tube((g0[0] + 0.45, g0[1] - 0.025), (g0[0] + 0.85, g0[1] - 0.045), 0.05, 0.05, z + 0.01, z + 0.01, (0.20, 0.20, 0.18))
+        else: S.box(g0[0] + 0.42, g0[1] - 0.12, 0.08, 0.06, 0, z + 0.08, 0.02, (0.22, 0.21, 0.17), rot=-0.3)     # Type 96 top magazine
+        S.tube((g0[0], g0[1]), (g0[0] + 0.3, g0[1] - 0.015), 0.04, 0.03, z + 0.01, z + 0.01, WOOD)
+        if prone:
+            for sy in (-1, 1): S.tube((end[0] - 0.15, end[1]), (end[0] - 0.05, end[1] + sy * 0.14), 0.015, 0.015, z - 0.05, 0.05, DARK)  # bipod
+        return [(g0[0] + 0.45, g0[1]), (g0[0] + 0.62, g0[1] - 0.05)]
+    if weapon == 'flame':
+        line(1.0, 0.03, 0.025, DARK)
+        S.disk(g0[0] + 0.98, g0[1] - 0.055, 0.035, 0, z + 0.05, 0.01, (0.35, 0.3, 0.2))                   # igniter
+        return [(g0[0] + 0.35, g0[1]), (g0[0] + 0.6, g0[1] - 0.03)]
+    if weapon == 'mortar':
+        r = 0.055 if us else 0.035
+        S.tube((g0[0] + 0.15, g0[1]), (g0[0] + 0.8, g0[1] - 0.04), r, r, z, z + 0.04, DARK)
+        return [(g0[0] + 0.3, g0[1] + 0.02), (g0[0] + 0.6, g0[1] - 0.02)]
+    if weapon == 'pistol':
+        S.box(g0[0] + 0.62, g0[1] - 0.06, 0.07, 0.025, 0, z + 0.03, 0.01, DARK)
+        return [(g0[0] + 0.55, g0[1] - 0.06)]
+    if weapon == 'smg':
+        line(0.82, 0.03, 0.022, DARK)
+        S.tube(g0, (g0[0] + 0.28, g0[1] - 0.014), 0.04, 0.03, z + 0.01, z + 0.01, WOOD)
+        S.disk(g0[0] + 0.5, g0[1] - 0.03, 0.03, 0, z + 0.05, 0.01, WOOD)                                   # fore grip
+        return [(g0[0] + 0.32, g0[1]), (g0[0] + 0.5, g0[1] - 0.03)]
+    if weapon == 'at':
+        return []                                                                                         # bazooka: drawn on the shoulder
+    L = 1.1 if us else 1.28                                                                               # rifle
+    line(L, 0.026, 0.02, DARK)
+    line(0.3 * L, 0.04, 0.03, WOOD, 0.01)
+    S.tube((g0[0] + 0.42 * L, g0[1] - 0.023), (g0[0] + 0.78 * L, g0[1] - 0.043), 0.028, 0.026, z + 0.01, z + 0.01, WOOD)
+    return [(g0[0] + 0.45, g0[1] + 0.01), (g0[0] + 0.6, g0[1] - 0.06)]
+
+
+def _back(S, c, weapon, x, z, prone):
+    """What a man carries on his back: pack, flamethrower tanks or a mortar baseplate."""
+    if weapon == 'flame':
+        for sy in (-1, 1): S.tube((x - 0.12, sy * 0.1), (x + 0.12, sy * 0.1), 0.1, 0.1, z, z, (0.28, 0.30, 0.20))
+        S.disk(x, 0, 0.06, 0, z + 0.08, 0.02, (0.35, 0.36, 0.30))
+    elif weapon == 'mortar' and c['us']:
+        S.disk(x, 0, 0.17, 0, z + 0.05, 0.03, (0.26, 0.27, 0.20))
+    else:
+        S.box(x, 0, 0.07 if not prone else 0.16, 0.14, 0, z + 0.04, 0.04, c['kit'])
+
+
+def soldier_body(name, side, stance, weapon, seed):
+    """Upper body seen from above, facing +x: shoulders, back load, arms, weapon, helmet. The legs are a
+    separate sprite (soldier_legs) so they can be animated under any weapon."""
+    c = _sol_colours(side, seed); uni = c['uni']
+    S = _sol_sprite(name, stance)
     prone = stance == 'prone'
-    S = Sprite(name, 2.6 if prone else 1.5, 1.0 if prone else 0.9, 64, pad=0.15)
     if prone:
-        for side_y in (-1, 1):                                                    # legs, splayed, boots up
-            S.tube((-0.3, side_y * 0.09), (-0.98, side_y * 0.19), 0.085, 0.07, 0.1, 0.1, uni)
-            S.box(-1.05, side_y * 0.2, 0.1, 0.05, 0, 0.16, 0.03, boot, rot=side_y * 0.15)
-        S.ellipsoid(0.0, 0, 0.42, 0.22, 0.05, 0.2, uni)                           # torso
-        S.box(-0.08, 0, 0.16, 0.14, 0, 0.32, 0.05, kit)                           # pack
-        z, hx, ex = 0.22, 0.45, 0.42                                              # gun height, helmet x, elbows x
-        for side_y in (-1, 1): S.tube((0.18, side_y * 0.2), (ex, side_y * 0.27), 0.055, 0.05, 0.2, 0.18, uni)
-        hands = [(0.55, 0.16), (0.75, 0.1)]
+        S.ellipsoid(0.0, 0, 0.42, 0.22, 0.05, 0.2, uni)                                                 # torso
+        _back(S, c, weapon, -0.08, 0.28, True)
+        z, top, lean, hx = 0.22, 0.25, 0.25, 0.45
+        sh = [(0.18, 0.2), (0.18, -0.2)]
         g0 = (0.3, 0.15)
     else:
         lean = 0.06 if stance == 'crouch' else 0.0
         top = 1.0 if stance == 'crouch' else 1.4
-        if stance == 'crouch':
-            S.tube((0.0, -0.11), (0.36, -0.13), 0.075, 0.065, 0.5, 0.45, uni)    # forward thigh, knee up
-            S.box(0.42, -0.13, 0.12, 0.05, 0, 0.12, 0.03, boot)
-            S.box(-0.28, 0.12, 0.12, 0.05, 0, 0.15, 0.03, boot)                   # kneeling leg's boot behind
-        else:
-            S.box(0.16, -0.1, 0.12, 0.05, 0, 0.1, 0.03, boot); S.box(-0.16, 0.1, 0.12, 0.05, 0, 0.1, 0.03, boot)
-        S.ellipsoid(lean, 0, 0.14, 0.28, top - 0.15, 0.15, uni)                   # shoulders
-        S.box(lean - 0.16, 0, 0.07, 0.14, 0, top + 0.04, 0.04, kit)              # pack
+        S.ellipsoid(lean, 0, 0.14, 0.28, top - 0.15, 0.15, uni)                                          # shoulders
+        _back(S, c, weapon, lean - 0.16, top, False)
         z, hx = top - 0.1, lean + 0.05
-        for sh_, el, hd in (((lean, 0.25), (lean + 0.17, 0.27), (lean + 0.3, 0.15)),       # right arm to the grip
-                            ((lean, -0.25), (lean + 0.26, -0.18), (lean + 0.44, 0.09))):   # left arm to the fore-end
-            S.tube(sh_, el, 0.055, 0.05, top - 0.05, z, uni); S.tube(el, hd, 0.05, 0.045, z, z, uni)
-        hands = [(lean + 0.3, 0.15), (lean + 0.44, 0.09)]
+        sh = [(lean, 0.25), (lean, -0.25)]
         g0 = (lean - 0.15, 0.15)
-    # weapon: wooden stock and fore-end, dark receiver and barrel
-    g1 = (g0[0] + gun_len, g0[1] - 0.06)
-    if weapon == 'mg':
-        S.tube(g0, g1, 0.045, 0.035, z, z, DARK)
-        S.tube((g0[0] + 0.45, g0[1] - 0.025), (g0[0] + 0.85, g0[1] - 0.045), 0.05, 0.05, z + 0.01, z + 0.01, (0.20, 0.20, 0.18))  # barrel jacket
-        S.box(g0[0] + 0.35, g0[1] - 0.02, 0.07, 0.05, 0, z + 0.06, 0.02, (0.24, 0.24, 0.20))                                  # feed tray
+    if weapon == 'at':
+        # bazooka on the right shoulder, both hands under it
+        S.tube((g0[0] - 0.45 if not prone else g0[0] - 0.35, 0.2), (g0[0] + 1.0, 0.17), 0.045, 0.045, top + 0.05, top + 0.05, (0.26, 0.30, 0.20))
+        S.disk(g0[0] + 1.0, 0.17, 0.05, 0, top + 0.07, 0.01, DARK)
+        hands = [(g0[0] + 0.4, 0.2), (g0[0] + 0.62, 0.12)]
     else:
-        S.tube(g0, g1, 0.026, 0.02, z, z, DARK)
-        t = lambda a: (g0[0] + (g1[0] - g0[0]) * a, g0[1] + (g1[1] - g0[1]) * a)
-        S.tube(g0, t(0.3), 0.04, 0.03, z + 0.01, z + 0.01, WOOD)                 # stock
-        S.tube(t(0.42), t(0.78), 0.028, 0.026, z + 0.01, z + 0.01, WOOD)          # fore-end
+        hands = _weapon(S, c, weapon, g0, z, prone)
+    if weapon == 'pistol':
+        # right arm out with the pistol, left arm at the side; an IJN officer also wears a sword
+        S.tube(sh[0], hands[0], 0.05, 0.045, top - 0.05 if not prone else 0.2, z, uni)
+        S.tube(sh[1], (sh[1][0] - 0.05, sh[1][1] - 0.05) if not prone else (sh[1][0] + 0.25, sh[1][1] - 0.08), 0.05, 0.045, top - 0.05 if not prone else 0.2, z - 0.2, uni)
+        if not c['us']: S.tube((0.02, -0.24), (-0.52, -0.3), 0.022, 0.02, z - 0.25 if not prone else 0.2, z - 0.35 if not prone else 0.2, (0.20, 0.15, 0.10))
+    else:
+        for (sx, sy), (hx_, hy_) in zip(sh, hands if len(hands) == 2 else hands * 2):
+            el = (sx + 0.2, sy + (0.04 if sy > 0 else 0.06)) if not prone else (sx + 0.24, sy * 1.35)
+            S.tube((sx, sy), el, 0.055, 0.05, (top - 0.05) if not prone else 0.2, z, uni); S.tube(el, (hx_, hy_), 0.05, 0.045, z, z, uni)
     for hx_, hy_ in hands: S.disk(hx_, hy_, 0.045, 0, z + 0.04, 0.02, SKIN)
-    # helmet: brim, then the dome
-    S.ellipsoid(hx, 0, 0.155, 0.145, (0.25 if prone else top) + 0.08, 0.04, helm)
-    S.ellipsoid(hx, 0, 0.125, 0.115, (0.25 if prone else top) + 0.1, 0.13, helm)
-    S.meta = {'kind': 'soldier', 'unit': SOL_UNIT_PRONE if prone else SOL_UNIT}
-    return S.finish(0.0, seed)
+    S.ellipsoid(hx, 0, 0.155, 0.145, top + 0.08, 0.04, c['helm'])                                       # helmet brim and dome
+    S.ellipsoid(hx, 0, 0.125, 0.115, top + 0.1, 0.13, c['helm'])
+    return _sol_done(S, stance)
+
+
+def soldier_legs(name, side, stance, frame, seed):
+    """Legs and boots for a stance; frames 1 and 2 are the two halves of a stride (or crawl)."""
+    c = _sol_colours(side, seed); uni, boot = c['uni'], c['boot']
+    S = _sol_sprite(name, stance)
+    f = (0, 1, -1)[frame]
+    if stance == 'prone':
+        for sy in (-1, 1):
+            if f and f == sy:                                                                             # crawl: this knee drawn up
+                knee = (-0.55, sy * 0.36)
+                S.tube((-0.3, sy * 0.09), knee, 0.085, 0.075, 0.1, 0.1, uni); S.tube(knee, (-0.85, sy * 0.22), 0.075, 0.07, 0.1, 0.1, uni)
+                S.box(-0.92, sy * 0.21, 0.1, 0.05, 0, 0.16, 0.03, boot, rot=sy * 0.4)
+            else:
+                S.tube((-0.3, sy * 0.09), (-0.98, sy * 0.19), 0.085, 0.07, 0.1, 0.1, uni)
+                S.box(-1.05, sy * 0.2, 0.1, 0.05, 0, 0.16, 0.03, boot, rot=sy * 0.15)
+    elif stance == 'crouch':
+        fwd = -1 if f >= 0 else 1                                                                         # side of the forward knee
+        reach = 0.42 if f == 0 else 0.5
+        S.tube((0.0, fwd * 0.11), (reach - 0.06, fwd * 0.13), 0.075, 0.065, 0.5, 0.45, uni)
+        S.box(reach, fwd * 0.13, 0.12, 0.05, 0, 0.12, 0.03, boot)
+        S.tube((0.0, -fwd * 0.11), (-0.22, -fwd * 0.12), 0.07, 0.065, 0.45, 0.2, uni)
+        S.box(-0.3 - (0.06 if f else 0), -fwd * 0.12, 0.12, 0.05, 0, 0.15, 0.03, boot)
+    else:
+        for sy in (-1, 1):
+            x = 0.16 * sy * -1 if f == 0 else 0.3 * f * sy * -1                                         # stride: one foot ahead
+            if f: S.tube((0.0, sy * 0.1), (x * 0.85, sy * 0.11), 0.075, 0.065, 0.9, 0.2, uni)
+            S.box(x, sy * 0.1, 0.12, 0.05, 0, 0.1, 0.03, boot)
+    return _sol_done(S, stance)
+
+
+def soldier_down(name, side, dead, seed):
+    """A wounded man on his back (knee drawn up, bandaged) or a dead one sprawled face down, rifle dropped."""
+    c = _sol_colours(side, seed, 0.78 if dead else 0.88); uni, boot = c['uni'], c['boot']
+    S = _sol_sprite(name, 'down')
+    if dead:
+        S.ellipsoid(0.05, 0, 0.42, 0.22, 0.05, 0.18, uni)
+        S.box(-0.05, 0, 0.16, 0.14, 0, 0.3, 0.04, c['kit'])
+        for sy, a in ((-1, 0.5), (1, -0.15)):
+            S.tube((-0.3, sy * 0.1), (-0.95, sy * (0.18 + a * 0.3)), 0.085, 0.07, 0.1, 0.1, uni)
+            S.box(-1.02, sy * (0.2 + a * 0.3), 0.1, 0.05, 0, 0.16, 0.03, boot)
+        S.tube((0.25, 0.2), (0.45, 0.55), 0.055, 0.045, 0.15, 0.1, uni); S.disk(0.47, 0.6, 0.045, 0, 0.14, 0.02, SKIN)
+        S.tube((0.25, -0.2), (0.62, -0.32), 0.055, 0.045, 0.15, 0.1, uni); S.disk(0.66, -0.33, 0.045, 0, 0.14, 0.02, SKIN)
+        S.ellipsoid(0.48, 0.02, 0.12, 0.1, 0.05, 0.13, SKIN if not c['us'] else (0.35, 0.28, 0.2))     # head (hair) or cap
+        S.ellipsoid(0.72, 0.32, 0.15, 0.14, 0.02, 0.12, c['helm'])                                     # helmet knocked off
+        S.tube((0.1, 0.6), (1.05, 0.38), 0.026, 0.02, 0.04, 0.04, DARK); S.tube((0.1, 0.6), (0.4, 0.53), 0.04, 0.03, 0.05, 0.05, WOOD)
+    else:
+        S.ellipsoid(0.0, 0, 0.42, 0.23, 0.05, 0.2, uni)
+        S.tube((-0.3, 0.1), (-0.98, 0.2), 0.085, 0.07, 0.1, 0.1, uni); S.box(-1.05, 0.21, 0.1, 0.05, 0, 0.2, 0.03, boot)
+        S.tube((-0.3, -0.1), (-0.6, -0.2), 0.085, 0.08, 0.1, 0.5, uni)                                 # knee drawn up
+        S.tube((-0.6, -0.2), (-0.88, -0.22), 0.08, 0.07, 0.5, 0.1, uni); S.box(-0.92, -0.22, 0.1, 0.05, 0, 0.16, 0.03, boot)
+        S.tube((0.25, 0.22), (0.05, 0.38), 0.055, 0.05, 0.15, 0.1, uni); S.disk(0.0, 0.42, 0.045, 0, 0.14, 0.02, SKIN)
+        S.box(0.02, 0.02, 0.13, 0.09, 0, 0.28, 0.03, (0.86, 0.84, 0.78), rot=0.4)                      # field dressing
+        S.tube((0.25, -0.22), (0.12, -0.1), 0.055, 0.05, 0.15, 0.3, uni)                               # hand on the wound
+        S.ellipsoid(0.48, 0, 0.155, 0.145, 0.05, 0.2, c['helm'])
+    return _sol_done(S, 'down')
 
 
 def soldiers():
-    """Pilot set of soldier sprites (sol_<side>_<stance>_<weapon>), drawn with ?soldier-sprites."""
-    return [soldier('sol_us_stand_rifle', 'us', 'stand', 'rifle', 81), soldier('sol_us_crouch_rifle', 'us', 'crouch', 'rifle', 82),
-            soldier('sol_us_prone_rifle', 'us', 'prone', 'rifle', 83), soldier('sol_us_stand_mg', 'us', 'stand', 'mg', 84),
-            soldier('sol_jp_stand_rifle', 'jp', 'stand', 'rifle', 85), soldier('sol_jp_prone_rifle', 'jp', 'prone', 'rifle', 86)]
+    """Infantry sprites: sol_<side>_<stance>_<weapon> bodies, sol_<side>_<stance>_legs<frame>, sol_<side>_down / _dead."""
+    sp, seed = [], 800
+    for side in ('us', 'jp'):
+        for stance in ('stand', 'crouch', 'prone'):
+            for w in SOL_WEAPONS:
+                seed += 1; sp.append(soldier_body(f'sol_{side}_{stance}_{w}', side, stance, w, seed))
+            for f in range(3):
+                seed += 1; sp.append(soldier_legs(f'sol_{side}_{stance}_legs{f}', side, stance, f, seed))
+        sp += [soldier_down(f'sol_{side}_down', side, False, seed + 1), soldier_down(f'sol_{side}_dead', side, True, seed + 2)]
+        seed += 2
+    return sp
 
 
 # --------------------------------------------------------------------------------------------- fortifications & buildings

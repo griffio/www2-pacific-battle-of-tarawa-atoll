@@ -15,9 +15,9 @@ const SEL_COL = { sel: [1, 0.86, 0.38], hover: [0.8, 0.92, 1] };
 const PALM_R = 4.4;
 const TURRET = { [K.SHERMAN]: ['sherman', 0.25], [K.STUART]: ['stuart', 0.1], [K.HAGO]: ['hago', 0.45] };
 const TRUCK_FOOT = [5.6, 2.4];   // wrecked-truck props are drawn at the truck's own size, whatever the prop's footprint
-// pilot: draw soldiers from pre-rendered sprites (sol_<side>_<stance>_<weapon>) when the URL has ?soldier-sprites
-const SOLDIER_SPRITES = typeof location !== 'undefined' && new URLSearchParams(location.search).has('soldier-sprites');
-const STANCE_NAME = ['stand', 'crouch', 'prone'], WEP_NAME = ['rifle', 'mg'];
+// soldiers are pre-rendered sprites (legs + body, tools/render_sprites.py); ?sdf-soldiers draws the old shader figures
+const SOLDIER_SPRITES = !(typeof location !== 'undefined' && new URLSearchParams(location.search).has('sdf-soldiers'));
+const STANCE_NAME = ['stand', 'crouch', 'prone'], WEP_NAME = ['rifle', 'mg', 'at', 'flame', 'smg', 'mortar', 'pistol'];
 let soldierMan = null;
 
 export class Scene {
@@ -287,12 +287,22 @@ export class Scene {
 
 function L_soldier(A, s, x, y, size, stance, anim, depth, alpha, sel = 0) {
   const wcls = WEP[s.wpn.cls] ?? 0;
-  // selected, wounded, dead and wading soldiers keep the shader figure (highlight, water ripple)
-  const sp = soldierMan && !sel && stance < 3 && depth < 0.25 && soldierMan.sprites[`sol_${s.side.toLowerCase()}_${STANCE_NAME[stance]}_${WEP_NAME[wcls]}`];
-  if (sp) {
-    const k = size / sp.unit;
-    A.push(x, y, sp.half[0] * k, sp.half[1] * k, s.dir, K.ATLAS, 0, 0, 1, 1, 1, alpha, ...sp.uv);
-    return;
+  const man = soldierMan;
+  if (man) {
+    const side = s.sideIdx === 0 ? 'us' : 'jp';
+    const body = man.sprites[stance >= 3 ? `sol_${side}_${stance === 3 ? 'down' : 'dead'}` : `sol_${side}_${STANCE_NAME[stance]}_${WEP_NAME[wcls]}`];
+    if (body) {
+      const k = size / body.unit, us = s.sideIdx === 0 ? 1 : 0, sub = Math.max(0, depth);
+      // selection / hover: the shader figure's highlight only, under the sprite
+      if (sel) A.push(x, y, size, size, s.dir, stance >= 3 ? K.BODY : K.SOLDIER, stance, wcls, 1, 1, 1, alpha, s.sideIdx, -1, sub, sel);
+      if (stance < 3 && sub < 0.6) {   // legs, hidden when wading; stride frames while moving
+        const ph = anim ? Math.sin(anim * 9) : 0;
+        const legs = man.sprites[`sol_${side}_${STANCE_NAME[stance]}_legs${Math.abs(ph) < 0.35 ? 0 : ph > 0 ? 1 : 2}`];
+        if (legs) A.push(x, y, legs.half[0] * k, legs.half[1] * k, s.dir, K.ATLAS, 3, 0, 0, us, 0, alpha, ...legs.uv);
+      }
+      A.push(x, y, body.half[0] * k, body.half[1] * k, s.dir, K.ATLAS, 3, 0, sub, us, 0.75 * size, alpha, ...body.uv);
+      return;
+    }
   }
   A.push(x, y, size, size, s.dir, stance >= 3 ? K.BODY : K.SOLDIER, stance, wcls, 1, 1, 1, alpha, s.sideIdx, anim, Math.max(0, depth), sel);
 }

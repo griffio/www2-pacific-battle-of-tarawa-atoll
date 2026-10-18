@@ -374,6 +374,7 @@ fn soldier(q: vec2f, hs: vec2f, prm: vec4f, col: vec4f, extra: vec2f) {
     px.c = sc; px.a = ga;
     fill(sil - w, sc);
   }
+  if (anim < 0.0) { AA = aa0; return; }   // highlight only: the figure itself is an atlas sprite drawn on top
   if (det > 0.0 && sub < 0.4 && selF <= 0.0) {
     // soft contact shadow
     let sd = select(sdEll(s - vec2f(-0.03, 0.03), vec2f(0.42, 0.62)), sdSeg(s, vec2f(-0.9, 0.04), vec2f(0.5, 0.04), 0.34), stance >= 2);
@@ -799,28 +800,40 @@ fn plane(q: vec2f, hs: vec2f) {
       let a = smoothstep(0.15, 0.0, abs(v)) * smoothstep(-1.0, 0.6, s.x) * smoothstep(1.0, 0.7, s.x) * col.a * (0.6 + 0.4 * vnoise(q * 2.0 - u.cam.w * 2.0));
       return vec4f(vec3f(0.9, 0.95, 0.97) * a * u.amb.w, a);
     }
-    case 48: { // pre-rendered atlas sprite: p0 = 1 destroyed, p1 = 1 canopy (no shadow received); p2..p5 = atlas rect
+    case 48: { // pre-rendered atlas sprite: p0 = 1 destroyed, 3 soldier; p1 = 1 canopy (no shadow received); p2..p5 = atlas rect
+      // soldiers: col.r = water depth, col.g = 1 for the player's side (lit at night), col.b = water ripple radius
       let rect = vec4f(prm.z, prm.w, in.extra.x, in.extra.y);
       let st = q / hs * 0.5 + 0.5;
       let uv = rect.xy + st * rect.zw;
       let sc = rect.zw / (2.0 * hs);
       let A = textureSampleGrad(atlasA, atlasS, uv, dqx * sc, dqy * sc);
-      if (A.a < 0.02) { discard; }
+      let soldierSp = prm.x > 2.5;
+      var ring = 0.0;
+      if (soldierSp && col.r > 0.15 && col.b > 0.0) {
+        let rr = col.b * (1.0 + 0.1 * sin(u.cam.w * 3.0 + q.x));
+        ring = clamp(0.5 - (abs(length(q) - rr) - col.b * 0.04) / AA, 0.0, 1.0) * 0.45;
+      }
+      if (A.a < 0.02 && ring <= 0.0) { discard; }
       let Nm = textureSampleGrad(atlasN, atlasS, uv, dqx * sc, dqy * sc);
       let nl = Nm.xy * 2.0 - 1.0;
       let cs = cos(in.rot); let sn = sin(in.rot);
       let nw = vec3f(nl.x * cs - nl.y * sn, nl.x * sn + nl.y * cs, sqrt(max(0.0, 1.0 - dot(nl, nl))));
       let diff = max(dot(nw, normalize(u.sun.xyz)), 0.0);
       var c = A.rgb;
-      if (prm.x > 0.5) {   // burnt-out wreck: charred paint, soot, rust
+      if (prm.x > 0.5 && prm.x < 1.5) {   // burnt-out wreck: charred paint, soot, rust
         let n = fbm2(q * 2.2 + vec2f(prm.z * 50.0, 0.0));
         c = mix(c * 0.32, vec3f(0.10, 0.09, 0.08), smoothstep(0.35, 0.7, n));
         c = mix(c, vec3f(0.36, 0.20, 0.11), smoothstep(0.62, 0.8, fbm2(q * 4.0 + 3.0)) * 0.6);
       }
-      let shade = mix(1.0, 0.45 + 0.75 * diff, u.sun.w) * Nm.a;
+      // soldiers keep a high floor so they stay readable in low light, as the shader figures (unshaded) were
+      let shade = mix(1.0, select(0.45, 0.85, soldierSp) + select(0.75, 0.3, soldierSp) * diff, u.sun.w) * select(Nm.a, 0.5 + 0.5 * Nm.a, soldierSp);
       let sh = shadowAt(in.pos.xy) * (1.0 - prm.y);
-      let lit = lighting(in.wp, c * shade * (1.0 - SHADOW_DIM * sh), 0.0);
-      let a = A.a * col.a;
+      let lit = lighting(in.wp, c * shade * (1.0 - SHADOW_DIM * sh), select(0.0, 0.35 * u.misc.x, soldierSp && col.g > 0.5));
+      let a = select(0.0, A.a, A.a >= 0.02) * col.a;
+      if (ring > 0.0) {
+        let ra = ring * col.a * (1.0 - a);
+        return vec4f(lit * a + lighting(in.wp, vec3f(0.9, 0.97, 1.0), 0.0) * ra, a + ra);
+      }
       return vec4f(lit * a, a);
     }
     case 47: { // selection / hover frame around a vehicle: glow + crisp border

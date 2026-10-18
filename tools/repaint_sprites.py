@@ -14,7 +14,7 @@ Credentials come from the environment, or from the project's .env (git-ignored),
     CLOUDFLARE_API_TOKEN=...
 
 How it works, per sprite:
-  1. The sprite is rendered afresh by render_sprites.vehicles() or soldiers() (so a repaint never feeds on an earlier
+  1. The sprite is rendered afresh by render_sprites.vehicles() (so a repaint never feeds on an earlier
      repaint) and cropped to its covered area. Its albedo is shaded with a soft top-left light so the
      model can read the forms, upscaled, and put on a key-green canvas.
   2. The model repaints it with a sprite-specific prompt asking for the same outline and a straight
@@ -53,10 +53,6 @@ COMMON = ('Repaint this top-down render as a highly detailed photograph of the r
           'in flat overcast light with no cast shadows: worn paint, weld seams, bolts and rivets, hatches, dust and salt stains. '
           'Keep exactly the same shape, outline, size, position and paint colours, and the straight overhead camera. '
           'Keep the flat bright green background. The front of the vehicle points to the right. Subject: ')
-COMMON_SOLDIER = ('Repaint this top-down render as a highly detailed photograph of a real 1943 infantryman taken from directly above '
-                  '(a strict plan view: only the top of the helmet, the shoulders, arms, pack and weapon are visible, no face), in flat overcast '
-                  'light with no cast shadows: cloth folds and seams, webbing straps, worn metal and wood. Keep exactly the same pose, outline, '
-                  'size, position and colours, and the straight overhead camera. Keep the flat bright green background. The soldier faces right. Subject: ')
 PROMPTS = {
     'sherman':        'hull of an M4A2 Sherman medium tank without its turret: olive drab welded steel, sloped glacis, driver and bow gunner hatches with periscopes, '
                       'engine deck grilles and access plates at the rear, pioneer tools, rubber block tracks along both sides.',
@@ -78,18 +74,8 @@ PROMPTS = {
                       'scorched rusty bonnet with louvres and mudguards, cargo bed floor mostly burnt away leaving charred planks over the chassis rails, ash.',
     'truck_wreck1':   'shot-up abandoned Japanese Type 94 army truck: faded khaki bonnet with louvres and mudguards, flat cab roof with bullet holes, '
                       'open wooden cargo bed with weathered grey-brown floor planks and one side board shot away, evenly faded paint with light dust.',
-    'sol_us_stand_rifle':  'a US Marine standing, M1 helmet with a green and brown camouflage cover, green herringbone twill utility jacket, '
-                           'light pack on his back, holding an M1 Garand rifle with a wooden stock pointing right.',
-    'sol_us_crouch_rifle': 'a US Marine crouching on one knee, M1 helmet with a green and brown camouflage cover, green herringbone twill utility jacket, '
-                           'light pack on his back, M1 Garand rifle with a wooden stock held ready, pointing right.',
-    'sol_us_prone_rifle':  'a US Marine lying prone with his legs behind him, M1 helmet with a green and brown camouflage cover, green herringbone twill '
-                           'utility uniform, light pack on his back, aiming an M1 Garand rifle with a wooden stock to the right.',
-    'sol_us_stand_mg':     'a US Marine standing, M1 helmet with a green and brown camouflage cover, green herringbone twill utility jacket, '
-                           'light pack on his back, carrying a Browning M1919 machine gun with a perforated barrel jacket pointing right.',
-    'sol_jp_stand_rifle':  'a Japanese naval infantryman standing, plain steel helmet, khaki-green tropical uniform, canvas pack on his back, '
-                           'holding an Arisaka rifle with a wooden stock pointing right.',
-    'sol_jp_prone_rifle':  'a Japanese naval infantryman lying prone with his legs behind him, plain steel helmet, khaki-green tropical uniform, '
-                           'canvas pack on his back, aiming an Arisaka rifle with a wooden stock to the right.',
+# Soldiers are not repainted: the model turns overhead standing figures into side views, and the detail is lost at
+# the 15-40 px they are drawn at; their modelled sprites are used as they are.
 }
 
 
@@ -345,7 +331,7 @@ def main():
     meta_path = os.path.join(REPAINT, 'manifest.json')
     meta = json.load(open(meta_path)) if os.path.exists(meta_path) else {}
     acc, tok = (None, None) if args.dry else credentials()
-    src = {sp.name: sp for sp in render_sprites.vehicles() + render_sprites.soldiers()}   # pristine renders, never a repainted atlas
+    src = {sp.name: sp for sp in render_sprites.vehicles()}     # pristine renders, never a repainted atlas
 
     rows, failed = [], []
     for name in names:
@@ -361,7 +347,7 @@ def main():
         if args.dry: print(f'{name}: input {canvas.size} written'); continue
         buf = io.BytesIO(); canvas.save(buf, 'PNG')
         inmask = key_mask(np.asarray(canvas))
-        prompt = (COMMON_SOLDIER if name.startswith('sol_') else COMMON) + PROMPTS[name]
+        prompt = COMMON + PROMPTS[name]
         best = None
         for i in range(args.attempts):
             seed = args.seed + 1000 * i

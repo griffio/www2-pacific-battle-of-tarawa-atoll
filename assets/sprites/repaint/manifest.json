@@ -77,18 +77,6 @@
   "model": "@cf/black-forest-labs/flux-2-klein-4b",
   "seed": 7
  },
- "sol_jp_prone_rifle": {
-  "alpha": "2e3f806c51b03a6b",
-  "match": 1.0,
-  "model": "@cf/black-forest-labs/flux-2-klein-4b",
-  "seed": 7
- },
- "sol_us_prone_rifle": {
-  "alpha": "5ff68e622bbdf62a",
-  "match": 1.0,
-  "model": "@cf/black-forest-labs/flux-2-klein-4b",
-  "seed": 7
- },
  "stuart": {
   "alpha": "7936b9236b10b87b",
   "match": 0.973,
