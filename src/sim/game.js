@@ -142,7 +142,8 @@ export class Game {
         x: x + Math.cos(a) * r, y: y + Math.sin(a) * r, px: 0, py: 0, dir: team.order.facing, stance: 1, wantStance: 1,
         state: 'ok', sup: 0, stamina: 100, fireCD: this.rng() * 2, burstLeft: 0, burstT: 0, reloadT: 0, target: null, targetT: 0, targetKind: null,
         setupT: wpn.setup ? wpn.setup : 0, moving: false, tx: x, ty: y, task: null, inVeh: null, inStruct: null, eyeBonus: 0,
-        visT: [side === 'US' ? 1e9 : 0, side === 'JP' ? 1e9 : 0], lastSeen: [0, 0], lastFired: -99, lastHitT: -99, kills: 0, status: 'ok',
+        visT: [side === 'US' ? 1e9 : 0, side === 'JP' ? 1e9 : 0], lastSeen: [0, 0], spotAcc: [0, 0], spotRollT: [-9, -9], spotBy: [null, null],
+        lastFired: -99, lastHitT: -99, kills: 0, status: 'ok',
         grenCD: 3 + this.rng() * 4, deathT: 0, bleedT: 0, wounds: 0, stable: false, slotX: x, slotY: y, anim: this.rng() * 10, idx: i,
         ghostX: 0, ghostY: 0, panicT: 0, berserk: false, exp: opts.exp ?? 1,
       };
@@ -164,7 +165,7 @@ export class Game {
       id: NEXT_ID++, type, spec, side, sideIdx: SIDE[side], x, y, px: x, py: y, dir, tdir: dir, speed: 0, hp: spec.hp, maxHp: spec.hp,
       state: 'ok', cargo: [], cargoVeh: null, path: null, pathI: 0, order: { kind: 'stop' }, grounded: false, ramp: 0, unloadT: 0,
       weps: spec.weps.map(k => ({ k, w: W[k], cd: this.rng() * 2, ammo: W[k].ammo, burstLeft: 0, burstT: 0, target: null, targetT: 0 })),
-      visT: [side === 'US' ? 1e9 : 0, side === 'JP' ? 1e9 : 0], lastSeen: [0, 0], lastFired: -99, name: opts.name || spec.name,
+      visT: [side === 'US' ? 1e9 : 0, side === 'JP' ? 1e9 : 0], lastSeen: [0, 0], spotAcc: [0, 0], spotRollT: [-9, -9], spotBy: [null, null], lastFired: -99, name: opts.name || spec.name,
       burnT: 0, wake: 0, immobile: false, team: null, autoUnload: opts.autoUnload ?? true, beachTarget: opts.beachTarget || null, carried: false, sinking: 0, ghostX: 0, ghostY: 0,
     };
     if (spec.crew) {
@@ -369,6 +370,7 @@ export class Game {
     if (this.ended) return;
     this.time += dt;
     const T = this.T;
+    if (T.navRect) this.nav.build(T.navRect);   // craters and wrecks since the last step change passability
     // spatial hashes
     this.hash.clear(); this.vhash.clear();
     const L0 = this.sideList[0], L1 = this.sideList[1];
@@ -459,6 +461,7 @@ export class Game {
       if (d2 > 160000 && far && e.visT[si] < now - 6) return;
       const nEyes = d2 > 22500 ? Math.min(2, eyes.length) : eyes.length;
       let bBase, bTop, ign = 0.9, firing = now - e.lastFired < 3;
+      const still = isVeh ? e.speed <= 0.5 && e.spec.kind !== 'boat' : !e.moving;   // a boat on the open reef never hides
       if (isVeh) { bBase = Math.max(this.T.water, this.T.baseAt(e.x, e.y)); bTop = bBase + (e.spec.kind === 'boat' ? 1.8 : 2.4); ign = 3; }
       else { [bBase, bTop] = this.bodyOf(e); if (e.inStruct) ign = Math.max(e.inStruct.w, e.inStruct.h) / 2 + 0.5; }
       let best = 0;
@@ -479,19 +482,30 @@ export class Game {
           if (e.inStruct) p *= firing && d < 350 ? 0.6 : d < 40 ? 0.5 : 0.04;
           if (e.eyeBonus && !firing) p *= 0.2;
           if (e.team.hidden && !firing && d > 60) p *= 0.2;
-        } else p *= 2.5;
+        } else {
+          p *= (!still || firing) ? 2.5 : 1;
+          if (e.holdRange && !e.sprung && !firing && d > 60) p *= 0.2;   // tank lying in ambush, engine off
+        }
         if (firing) p *= 3;
+        else if (still && d > 60) p *= clamp(1.3 - d / 250, 0.1, 1);   // a still, silent target fades with distance
         if (night) { const l = this.lightAt(e.x, e.y); p *= lerp(1, l, night) + (firing ? 0.5 : 0); if (d > 60 && l < 0.3 && !firing) p *= 0.3; }
         if (d < 25) p = Math.max(p, L.frac > 0.2 ? 0.8 : 0.2);
         best = Math.max(best, p);
         if (best > 0.95) break;
       }
-      if (best > 0 && this.rng() < best) {
+      // one roll per target every 0.5 s against its best observer, so a side with many teams looking does not
+      // multiply its chances (every team used to roll independently)
+      if (best > e.spotAcc[si]) { e.spotAcc[si] = best; e.spotBy[si] = team; }
+      if (now - e.spotRollT[si] < 0.5) return;
+      e.spotRollT[si] = now;
+      const chance = e.spotAcc[si], by = e.spotBy[si] || team;
+      e.spotAcc[si] = 0; e.spotBy[si] = null;
+      if (chance > 0 && this.rng() < chance) {
         const was = e.visT[si] > now;
         e.visT[si] = now + 3.5;
         e.lastSeen[si] = now;
         e.ghostX = e.x; e.ghostY = e.y;
-        if (!was) this.onSpotted(team, e, isVeh);
+        if (!was) this.onSpotted(by, e, isVeh);
       }
     };
     const foes = this.sideList[ei];

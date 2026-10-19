@@ -820,6 +820,7 @@ fn plane(q: vec2f, hs: vec2f) {
       let nw = vec3f(nl.x * cs - nl.y * sn, nl.x * sn + nl.y * cs, sqrt(max(0.0, 1.0 - dot(nl, nl))));
       let diff = max(dot(nw, normalize(u.sun.xyz)), 0.0);
       var c = A.rgb;
+      if (!soldierSp) { c *= col.rgb; }   // per-instance tint (palm colour variation); soldiers carry data in col
       if (prm.x > 0.5 && prm.x < 1.5) {   // burnt-out wreck: charred paint, soot, rust
         let n = fbm2(q * 2.2 + vec2f(prm.z * 50.0, 0.0));
         c = mix(c * 0.32, vec3f(0.10, 0.09, 0.08), smoothstep(0.35, 0.7, n));

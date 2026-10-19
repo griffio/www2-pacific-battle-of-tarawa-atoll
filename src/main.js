@@ -404,7 +404,7 @@ class App {
     $('pm-resume').onclick = () => this.togglePauseMenu(false);
     $('pm-help').onclick = () => { $('help').classList.remove('hidden'); };
     $('help-close').onclick = () => $('help').classList.add('hidden');
-    $('pm-cease').onclick = () => { this.togglePauseMenu(false); this.game.end('ceasefire'); };
+    $('pm-cease').onclick = () => { this.togglePauseMenu(false); this.game.end('ceasefire'); this.drainEvents(this.game); };
     $('pm-restart').onclick = () => { this.togglePauseMenu(false); this.startBriefing(this.sc); };
     $('pm-quit').onclick = () => { this.togglePauseMenu(false); this.enterAtoll(); };
     $('pm-vol').oninput = (e) => { this.audio.volume = +e.target.value; if (this.audio.master) this.audio.master.gain.value = this.audio.volume; };
