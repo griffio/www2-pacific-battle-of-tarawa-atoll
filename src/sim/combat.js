@@ -708,7 +708,7 @@ export function soldierCombatProxy(g, v, wep, i, dt) {
   if (p.ammo <= 0 || v.unloadT > 0) return;
   let maxR = w.range;
   if (v.holdRange && !v.sprung) { if (v.hp < v.maxHp) v.sprung = true; else maxR = Math.min(maxR, v.holdRange); }
-  if (v.order.kind === 'fast') maxR = Math.min(maxR, 80);
+  if (v.order.kind === 'fast' || v.order.kind === 'retreat') maxR = Math.min(maxR, 80);
   if (v.order.kind === 'ambush') maxR = Math.min(maxR, 120);
   p.targetT -= dt;
   if (p.targetT <= 0 || (p.targetKind && !validTarget(g, p))) { chooseTarget(g, p, maxR); p.targetT = 1 + g.rng(); }

@@ -60,7 +60,7 @@ The **atoll map** is a zoomable strategic view of all of Tarawa: Betio, Bairiki,
 | | Desktop | iPad |
 |---|---|---|
 | Select | click, box-drag, Shift adds, Tab cycles; hovering a unit or its card outlines it | tap a soldier or a unit card; long-press adds |
-| Orders | right-click opens the order menu (line-of-sight readout shown); hotkeys M R C F G Q E Z U X | tap ground or an enemy to open the order menu, or tap an order bar button and then the target |
+| Orders | right-click opens the order menu (line-of-sight readout shown); hotkeys M R C B F G Q E Z U X | tap ground or an enemy to open the order menu, or tap an order bar button and then the target |
 | Camera | wheel or +/− zoom (close enough to see each Marine), right-drag / WASD / arrows to pan | pinch, drag |
 | Time | Space pause; 1/2/3 select 1×/2×/4× | buttons in the top bar |
 | Elevation view | T: contour lines every 0.5 m, height colours, spot heights, height under the cursor | ⛰ button in the top bar |

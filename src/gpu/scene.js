@@ -19,6 +19,19 @@ const TRUCK_FOOT = [5.6, 2.4];   // wrecked-truck props are drawn at the truck's
 const SOLDIER_SPRITES = !(typeof location !== 'undefined' && new URLSearchParams(location.search).has('sdf-soldiers'));
 const STANCE_NAME = ['stand', 'crouch', 'prone'], WEP_NAME = ['rifle', 'mg', 'at', 'flame', 'smg', 'mortar', 'pistol'];
 let soldierMan = null;
+// soldier sprite lookups cached by (side, stance, weapon class, leg frame): no string building per soldier per frame
+let solCache = new Map(), solCacheMan = null;
+function solSprite(man, side, stance, wcls, leg) {   // leg: -1 body, 0..2 stride frame
+  if (solCacheMan !== man) { solCacheMan = man; solCache = new Map(); }
+  const key = ((side * 8 + stance) * 8 + wcls) * 4 + leg + 1;
+  let sp = solCache.get(key);
+  if (sp === undefined) {
+    const sd = side === 0 ? 'us' : 'jp';
+    const name = leg >= 0 ? `sol_${sd}_${STANCE_NAME[stance]}_legs${leg}` : stance >= 3 ? `sol_${sd}_${stance === 3 ? 'down' : 'dead'}` : `sol_${sd}_${STANCE_NAME[stance]}_${WEP_NAME[wcls]}`;
+    sp = man.sprites[name] || null; solCache.set(key, sp);
+  }
+  return sp;
+}
 
 export class Scene {
   constructor(renderer, map) {
@@ -289,15 +302,14 @@ function L_soldier(A, s, x, y, size, stance, anim, depth, alpha, sel = 0) {
   const wcls = WEP[s.wpn.cls] ?? 0;
   const man = soldierMan;
   if (man) {
-    const side = s.sideIdx === 0 ? 'us' : 'jp';
-    const body = man.sprites[stance >= 3 ? `sol_${side}_${stance === 3 ? 'down' : 'dead'}` : `sol_${side}_${STANCE_NAME[stance]}_${WEP_NAME[wcls]}`];
+    const body = solSprite(man, s.sideIdx, stance, wcls, -1);
     if (body) {
       const k = size / body.unit, us = s.sideIdx === 0 ? 1 : 0, sub = Math.max(0, depth);
       // selection / hover: the shader figure's highlight only, under the sprite
       if (sel) A.push(x, y, size, size, s.dir, stance >= 3 ? K.BODY : K.SOLDIER, stance, wcls, 1, 1, 1, alpha, s.sideIdx, -1, sub, sel);
       if (stance < 3 && sub < 0.6) {   // legs, hidden when wading; stride frames while moving
         const ph = anim ? Math.sin(anim * 9) : 0;
-        const legs = man.sprites[`sol_${side}_${STANCE_NAME[stance]}_legs${Math.abs(ph) < 0.35 ? 0 : ph > 0 ? 1 : 2}`];
+        const legs = solSprite(man, s.sideIdx, stance, wcls, Math.abs(ph) < 0.35 ? 0 : ph > 0 ? 1 : 2);
         if (legs) A.push(x, y, legs.half[0] * k, legs.half[1] * k, s.dir, K.ATLAS, 3, 0, 0, us, 0, alpha, ...legs.uv);
       }
       A.push(x, y, body.half[0] * k, body.half[1] * k, s.dir, K.ATLAS, 3, 0, sub, us, 0.75 * size, alpha, ...body.uv);

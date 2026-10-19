@@ -255,7 +255,7 @@ export class Game {
       let tx = x, ty = y;
       if (kind === 'assault' && target) { [tx, ty] = this.assaultPoint(team, target); o.target = target; }
       const danger = team.side === 'US' && kind !== 'fast' ? this.getDanger() : null;
-      const path = this.nav.find(MC.INF, cx, cy, tx, ty, { danger, dangerW: kind === 'sneak' ? 6 : kind === 'assault' ? 5 : 2.5 });
+      const path = this.nav.find(MC.INF, cx, cy, tx, ty, { danger, dangerW: kind === 'sneak' ? 6 : kind === 'assault' || kind === 'retreat' ? 5 : 2.5 });
       if (!path || path.length < 1) { this.msg(`${team.name}: no route`, 'warn'); return false; }
       path.unshift([cx, cy]);
       o.path = path; o.cum = [0];
@@ -302,7 +302,7 @@ export class Game {
     if (v.state === 'destroyed') return false;
     if (kind === 'unload') { unloadVehicle(this, v); return true; }
     const spec = v.spec;
-    if (kind === 'move' || kind === 'fast' || kind === 'sneak' || kind === 'assault') {
+    if (kind === 'move' || kind === 'fast' || kind === 'sneak' || kind === 'assault' || kind === 'retreat') {
       const cls = spec.kind === 'boat' ? MC.BOAT : spec.kind === 'amph' ? MC.AMPH : MC.TRACK;
       if (v.immobile || v.grounded) { this.msg(`${v.name} cannot move`, 'warn'); return false; }
       let path = this.nav.find(cls, v.x, v.y, x, y, { draft: spec.draft, wade: spec.wade });
@@ -437,6 +437,7 @@ export class Game {
       eyes.push([v.x, v.y, this.T.baseAt(v.x, v.y) + 2.4, 1.0]);
     } else if (team.embarked) {
       const v = team.embarked;
+      if (v.team && this.teamAlive(v.team) > 0) return;   // the crew keeps watch for everyone aboard
       eyes.push([v.x, v.y, Math.max(this.T.water, this.T.baseAt(v.x, v.y)) + 2, 0.6]);
     } else {
       for (const s of team.soldiers) {
@@ -554,7 +555,7 @@ export class Game {
   // ------------------------------------------------------------ teams
   updateTeam(team, dt) {
     if (team.vehicle || team.embarked) {
-      team.status = team.embarked ? 'Embarked' : team.vehicle.state === 'destroyed' ? 'Knocked out' : team.vehicle.grounded ? 'Grounded' : team.vehicle.path ? 'Moving' : 'Ready';
+      team.status = team.embarked ? 'Embarked' : team.vehicle.state === 'destroyed' ? 'Knocked out' : team.vehicle.crewDead ? 'Crew lost' : team.vehicle.grounded ? 'Grounded' : team.vehicle.path ? 'Moving' : 'Ready';
       return;
     }
     let alive = 0, pinned = 0, cower = 0, panic = 0, supSum = 0;
@@ -816,7 +817,8 @@ export class Game {
   incap(t, shooter) {
     if (t.state === 'incap' || t.state === 'dead') return;
     this.countWIA(t);
-    t.state = 'incap'; t.bleedT = 60 + this.rng() * 160; t.burstLeft = 0; t.moving = false;
+    t.state = 'incap'; t.bleedT = 120 + this.rng() * 300; t.burstLeft = 0; t.moving = false;
+    t.stable = this.rng() < 0.3;   // a lighter wound: he lives without a corpsman
     t.team.morale -= 8;
     if (t.side === 'US') { if (this.rng() < 0.5) this.voice(this.rng() < 0.5 ? 'us_corpsman_1' : 'us_corpsman_2', t.x, t.y, 'US', { cd: 8, key: 'corpsman' }); }
     else { if (this.rng() < 0.2) this.voice('jp_medic', t.x, t.y, 'JP', { cd: 15 }); }

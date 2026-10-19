@@ -15,7 +15,7 @@ import { clamp, dist } from './util.js';
 const $ = (id) => document.getElementById(id);
 const SIM_DT = 1 / 20;
 const VOICE_ACK = {
-  move: ['us_move_1', 'us_move_2', 'us_move_3', 'us_ack_1'], fast: ['us_fast_1', 'us_fast_2'], sneak: ['us_sneak_1', 'us_sneak_2'],
+  move: ['us_move_1', 'us_move_2', 'us_move_3', 'us_ack_1'], fast: ['us_fast_1', 'us_fast_2'], sneak: ['us_sneak_1', 'us_sneak_2'], retreat: ['us_retreat_1'],
   fire: ['us_fire_1', 'us_fire_2', 'us_fire_3'], assault: ['us_fire_2', 'us_ack_2', 'us_move_2'], defend: ['us_defend_1', 'us_ack_3'], ambush: ['us_ambush_1'],
   stop: ['us_stop_1'], smoke: ['us_smoke_1'], unload: ['us_ramp_1'], select: ['us_selected_1', 'us_selected_2', 'us_selected_3'],
 };
@@ -207,7 +207,7 @@ class App {
     const order = ['Defeat', 'Draw', 'Marginal Victory', 'Victory', 'Decisive Victory'];
     const prev = this.progress[sc.id];
     if (!prev || order.indexOf(r.grade) > order.indexOf(prev)) { this.progress[sc.id] = r.grade; saveProgress(this.progress); }
-    $('db-sub').textContent = `${sc.name} · ${r.reason === 'time' ? 'Time expired' : r.reason === 'cleared' ? 'Enemy eliminated' : r.reason === 'ceasefire' ? 'Cease fire' : 'Forces destroyed'}`;
+    $('db-sub').textContent = `${sc.name} · ${r.reason === 'time' ? 'Time expired' : r.reason === 'cleared' ? 'Enemy eliminated' : r.reason === 'ceasefire' ? 'Cease fire' : 'No effectives left'}`;
     $('db-grade').textContent = r.grade;
     const st = r.stats;
     const best = g.soldiers.filter(s => s.side === 'US' && s.kills >= 1).sort((a, b) => b.kills - a.kills).slice(0, 5);
@@ -335,7 +335,7 @@ class App {
       if (canAssault && (isStruct || (target.inStruct))) opts.push(['assault', 'Assault', 'assault']);
       opts.push(['move', 'Move'], ['fast', 'Fast'], ['sneak', 'Sneak']);
     } else {
-      opts = [['move', 'Move'], ['fast', 'Fast'], ['sneak', 'Sneak'], ['fire', 'Area fire', 'fire'], ['defend', 'Defend'], ['ambush', 'Ambush']];
+      opts = [['move', 'Move'], ['fast', 'Fast'], ['sneak', 'Sneak'], ['retreat', 'Retreat'], ['fire', 'Area fire', 'fire'], ['defend', 'Defend'], ['ambush', 'Ambush']];
       if (anyInf && sel.some(t => t.smokeN > 0)) opts.push(['smoke', 'Smoke']);
       if (canUnload) opts.push(['unload', 'Unload']);
     }
@@ -353,7 +353,7 @@ class App {
       b.style.left = (cx + Math.cos(a) * rad) + 'px'; b.style.top = (cy + Math.sin(a) * rad * 0.82) + 'px';
       b.addEventListener('pointerup', (e) => {
         e.stopPropagation();
-        if (k !== 'cancel') this.issueOrder(k, wx, wy, k === 'move' || k === 'fast' || k === 'sneak' ? null : target);
+        if (k !== 'cancel') this.issueOrder(k, wx, wy, k === 'move' || k === 'fast' || k === 'sneak' || k === 'retreat' ? null : target);
         this.closeRadial();
       });
       b.addEventListener('pointerdown', (e) => e.stopPropagation());
@@ -595,7 +595,7 @@ class App {
     const k = e.key.toLowerCase();
     const pauseOpen = !$('pausemenu').classList.contains('hidden');
     // order hotkeys (WASD / arrows pan the camera)
-    const map = { m: 'move', r: 'fast', c: 'sneak', f: 'fire', g: 'assault', q: 'smoke', e: 'defend', z: 'ambush' };
+    const map = { m: 'move', r: 'fast', c: 'sneak', b: 'retreat', f: 'fire', g: 'assault', q: 'smoke', e: 'defend', z: 'ambush' };
     if (k === ' ') { e.preventDefault(); if (!pauseOpen) this.setSpeed(0); }
     else if (k === 'escape') { if (this.radialOpen) this.closeRadial(); else if (this.orderMode) { this.orderMode = null; this.losPoint = null; } else this.togglePauseMenu(); this.hud.update(true); }
     else if (pauseOpen) return;

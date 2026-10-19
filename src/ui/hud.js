@@ -51,6 +51,13 @@ export class HUD {
     const [bx0, by0, bx1, by1] = g.bounds;
     const sx = (wx) => (wx - bx0) / (bx1 - bx0) * W, sy = (wy) => (wy - by0) / (by1 - by0) * H;
     x.drawImage(this.mmImg, 0, 0);
+    const night = g.light.night || 0;
+    if (night > 0.05) {   // the map darkens and cools with the scenario's light, brightening again at dawn
+      const t = g.light.tint || [1, 1, 1], k = 1 - night * 0.6;
+      x.save(); x.globalCompositeOperation = 'multiply';
+      x.fillStyle = `rgb(${Math.round(255 * t[0] * k)},${Math.round(255 * t[1] * k)},${Math.round(255 * t[2] * k)})`;
+      x.fillRect(0, 0, W, H); x.restore();
+    }
     for (const st of g.structures) if (st.known[0] && !st.destroyed && st.garrison.some(t => g.teamAlive(t) > 0)) { x.fillStyle = '#ff3a2a'; x.fillRect(sx(st.x) - 3, sy(st.y) - 3, 6, 6); }
     for (const vl of g.vls) { x.strokeStyle = vl.owner === 'US' ? '#3a9bff' : '#ff3a2a'; x.lineWidth = 3; x.beginPath(); x.arc(sx(vl.x), sy(vl.y), 6, 0, 7); x.stroke(); }
     for (const s of g.soldiers) {

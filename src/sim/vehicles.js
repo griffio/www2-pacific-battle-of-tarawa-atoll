@@ -13,6 +13,10 @@ export function updateVehicle(g, v, dt) {
     return;
   }
   if (v.carried) return;
+  if (v.team && !v.crewDead && g.teamAlive(v.team) === 0) {   // nobody left at the controls: it stops where it is
+    v.crewDead = true; v.immobile = true; v.path = null; v.speed = 0;
+    g.msg(`${v.name}: crew lost${v.cargo.length ? ' — the troops aboard can still unload' : ''}`, v.side === 'US' ? 'bad' : 'good');
+  }
   if (v.cargoVeh) { const c = v.cargoVeh; c.x = v.x; c.y = v.y; c.dir = v.dir; c.tdir = v.dir; }
   // unloading sequence
   if (v.unloadT > 0) {
@@ -40,7 +44,7 @@ export function updateVehicle(g, v, dt) {
       target = inWater ? spec.sw || 1.2 : spec.sl || 0.5;
       if (spec.kind === 'track' && depth > 0) target *= clamp(1 - depth * 0.45, 0.3, 1);
       if (v.order.kind === 'sneak') target *= 0.5;
-      if (v.order.kind === 'fast') target *= 1.15;
+      if (v.order.kind === 'fast' || v.order.kind === 'retreat') target *= 1.15;
       target *= clamp(1.15 - diff / 1.1, 0.15, 1);
       if (spec.kind === 'track' && T.vegAt(v.x, v.y) > 0.4) target *= 0.8;
     }
@@ -108,7 +112,7 @@ function onGround(g, v) {
 export function unloadVehicle(g, v) {
   if (v.unloadT > 0 || (!v.cargo.length && !v.cargoVeh)) return false;
   const depth = g.T.depthAt(v.x + Math.cos(v.dir) * v.spec.len * 0.6, v.y + Math.sin(v.dir) * v.spec.len * 0.6);
-  if (depth > 1.5 && !v.grounded && !v.beachTarget) { g.msg(`${v.name}: water too deep to unload here`, "warn"); return false; }
+  if (depth > 1.5 && !v.grounded && !v.beachTarget && !v.crewDead) { g.msg(`${v.name}: water too deep to unload here`, "warn"); return false; }   // a crewless craft: over the side
   v.path = null; v.speed = 0;
   v.unloadT = v.spec.kind === 'boat' ? 2.6 : 1.4;
   if (v.spec.kind === 'boat') g.sound('ramp_drop', v.x, v.y, 0.9);
